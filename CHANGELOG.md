@@ -10,6 +10,9 @@
 - #58 Add a defined API for every field type, and ensure all fields implement it (Thanks @alexander-zw)
 - #71 Add BLS12-381 (Thanks @yelhousni)
 
+### Improvements
+- #xx Speedup sqrt by removing unnecessary exponentiation
+
 ### Bug fixes
 - #75 get rid of warning for unused constant PI, in complex field
 - #78 Reduce prints when inhibit_profiling_info is set.
@@ -29,7 +32,7 @@ _Special thanks to all downstream projects upstreaming their patches!_
 
 ### Bug fixes
 - #19 Fix is_little_endian always returning true
-- #20 Fix operator+ not contributing to alt_bn_128 profiling opcount 
+- #20 Fix operator+ not contributing to alt_bn_128 profiling opcount
 - #26 Remove unused warnings in release build
 - #39 Update Travis Config for newer Ubuntu mirror defaults
 - #50 Fix incorrect mnt4 g2 generator
