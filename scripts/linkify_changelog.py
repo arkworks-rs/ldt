@@ -17,7 +17,7 @@ repo_name = ""
 if len(sys.argv) < 2:
     print("Must include path to changelog as the first argument to the script")
     print("Example Usage: python3 linkify_changelog.py ../CHANGELOG.md")
-    return
+    exit()
 
 changelog_path = sys.argv[1]
 if repo_name == "":
