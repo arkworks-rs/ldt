@@ -1,0 +1,22 @@
+[package]
+name = "ark-ldt"
+version = "0.1.0"
+authors = ["arkworks contributors"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-ff = { version = "^0.2.0", default-features = false }
+ark-std = { version = "^0.2.0", default-features = false }
+ark-relations = { version = "^0.2.0", default-features = false }
+ark-r1cs-std = {git="https://github.com/tsunrise/r1cs-std.git", branch="domain"}
+ark-sponge = {git="https://github.com/arkworks-rs/sponge/", branch="experimental", default-features=false}
+ark-poly = "0.2.0"
+
+[dev-dependencies]
+ark-test-curves = { version = "^0.2.0", default-features = false, features = ["bls12_381_scalar_field", "mnt4_753_scalar_field"] }
+
+[features]
+default = ["std"]
+std = ["ark-ff/std", "ark-std/std", "ark-relations/std", "ark-r1cs-std/std", "ark-sponge/std"]
