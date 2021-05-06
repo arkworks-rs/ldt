@@ -1,2 +1,2 @@
-pub mod fri;
 mod direct;
+pub mod fri;

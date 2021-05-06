@@ -1,14 +1,13 @@
 use ark_ff::PrimeField;
-use std::marker::PhantomData;
 use ark_r1cs_std::poly::domain::EvaluationDomain;
 use ark_r1cs_std::poly::evaluations::univariate::lagrange_interpolator::LagrangeInterpolator;
+use std::marker::PhantomData;
 
 pub struct FRIProver<F: PrimeField> {
-    _prover: PhantomData<F>
+    _prover: PhantomData<F>,
 }
 
 impl<F: PrimeField> FRIProver<F> {
-
     /// Single round prover in commit phase. Returns the polynomial for next round
     /// represented by evaluations over domain in next round.
     ///
@@ -17,7 +16,7 @@ impl<F: PrimeField> FRIProver<F> {
         domain: EvaluationDomain<F>,
         poly_over_domain: Vec<F>,
         localization_param: u64,
-        alpha: F
+        alpha: F,
     ) -> Vec<F> {
         let coset_size = 1 << localization_param;
         let domain_size = 1 << domain.dim;
@@ -26,28 +25,24 @@ impl<F: PrimeField> FRIProver<F> {
         let coset_generator = domain.gen.pow(&[1 << (domain.dim - localization_param)]);
         let mut cur_coset_offset = domain.offset;
 
-        for coset_index in 0..dist_between_coset_elems
-        {
+        for coset_index in 0..dist_between_coset_elems {
             let mut poly_evals = Vec::new();
-            for intra_coset_index in 0..coset_size
-            {
-                poly_evals.push(poly_over_domain[coset_index + intra_coset_index * dist_between_coset_elems]);
+            for intra_coset_index in 0..coset_size {
+                poly_evals.push(
+                    poly_over_domain[coset_index + intra_coset_index * dist_between_coset_elems],
+                );
             }
-
 
             let interpolator = LagrangeInterpolator::new(
                 cur_coset_offset,
                 coset_generator,
                 localization_param,
-                poly_evals);
+                poly_evals,
+            );
             new_evals.push(interpolator.interpolate(alpha));
             cur_coset_offset *= domain.gen;
         }
 
         new_evals
     }
-
 }
-
-
-
