@@ -122,6 +122,12 @@ mod tests {
     use ark_ff::UniformRand;
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::{EvaluationDomain, Polynomial, Radix2EvaluationDomain, UVPolynomial};
+    use ark_r1cs_std::alloc::AllocVar;
+    use ark_r1cs_std::fields::fp::FpVar;
+    use ark_r1cs_std::poly::evaluations::univariate::EvaluationsVar;
+    use ark_r1cs_std::poly::polynomial::univariate::dense::DensePolynomialVar;
+    use ark_r1cs_std::R1CSVar;
+    use ark_relations::r1cs::ConstraintSystem;
     use ark_std::test_rng;
     use ark_test_curves::bls12_381::Fr;
 
@@ -130,7 +136,7 @@ mod tests {
         let mut rng = test_rng();
         let degree = 51;
         let poly = DensePolynomial::<Fr>::rand(degree, &mut rng);
-        let base_domain = Radix2EvaluationDomain::new(64).unwrap();
+        let base_domain = Radix2EvaluationDomain::new(degree + 1).unwrap();
         let offset = Fr::rand(&mut rng);
         let coset = CosetDomain::new(base_domain, offset);
 
@@ -144,8 +150,30 @@ mod tests {
         assert_eq!(actual_eval, expected_eval);
 
         // test interpolation
-        let interpolated_poly = coset.interpolate(expected_eval);
+        let interpolated_poly = coset.interpolate(expected_eval.to_vec());
         assert_eq!(interpolated_poly, poly);
+
+        // test consistency with r1cs-std
+        let cs = ConstraintSystem::new_ref();
+        let eval_var: Vec<_> = expected_eval
+            .iter()
+            .map(|x| FpVar::new_witness(ark_relations::ns!(cs, "eval_var"), || Ok(*x)).unwrap())
+            .collect();
+        let r1cs_coset = ark_r1cs_std::poly::domain::EvaluationDomain {
+            gen: base_domain.group_gen,
+            offset,
+            dim: ark_std::log2(degree.next_power_of_two()) as u64,
+        };
+        let eval_var = EvaluationsVar::from_vec_and_domain(eval_var, r1cs_coset, true);
+
+        let pt = Fr::rand(&mut rng);
+        let pt_var = FpVar::new_witness(ark_relations::ns!(cs, "random point"), || Ok(pt)).unwrap();
+
+        let expected = poly.evaluate(&pt);
+        let actual = eval_var.interpolate_and_evaluate(&pt_var).unwrap();
+
+        assert_eq!(actual.value().unwrap(), expected);
+        assert!(cs.is_satisfied().unwrap());
     }
 
     #[test]
