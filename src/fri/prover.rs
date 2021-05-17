@@ -66,7 +66,7 @@ pub mod tests{
     use crate::fri::prover::FRIProver;
 
     #[test]
-    fn low_degree_assumption_test(){
+    fn degree_reduction_test(){
         let degree = 32;
 
         let mut rng = test_rng();
