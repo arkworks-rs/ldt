@@ -45,9 +45,56 @@ impl<F: PrimeField> FRIProver<F> {
             cur_coset_offset *= domain.gen();
         }
 
-        let mut c = Radix2CosetDomain::new_radix2_coset(coset_size as usize, domain.offset);
+        let mut c = Radix2CosetDomain::new_radix2_coset(new_evals.len(), domain.offset);
         c.base_domain.group_gen = coset_generator;
+        debug_assert_eq!(coset_generator.pow(&[new_evals.len() as u64]), F::one());
 
         (c, new_evals)
+    }
+}
+
+
+#[cfg(test)]
+pub mod tests{
+    use ark_std::{test_rng, UniformRand};
+    use ark_test_curves::bls12_381::Fr;
+    use crate::domain::Radix2CosetDomain;
+    use crate::direct::DirectLDT;
+    use ark_poly::univariate::DensePolynomial;
+    use ark_poly::UVPolynomial;
+    use crate::fri::prover::FRIProver;
+
+    #[test]
+    fn low_degree_assumption_test(){
+        let degree = 32;
+
+        let mut rng = test_rng();
+        let poly = DensePolynomial::<Fr>::rand(degree, &mut rng);
+        let domain_coset = Radix2CosetDomain::new_radix2_coset(64, Fr::rand(&mut rng));
+        let evaluations = domain_coset.evaluate(&poly);
+
+        // fri prover should reduce its degree
+        let alpha = Fr::rand(&mut rng);
+        let localization = 2;
+        let (domain_next_round, eval_next_round) =
+            FRIProver::interactive_phase_single_round(domain_coset.clone(),
+                                                               evaluations.to_vec(),
+                                                               localization,
+                                                               alpha);
+
+        let low_degree_poly = DirectLDT::generate_low_degree_coefficients(
+            domain_next_round.clone(),
+            eval_next_round.to_vec(),
+            degree / (1 << localization),
+        );
+
+        let sampled_element = domain_coset.element(15);
+        let sampled_evaluation = evaluations[15];
+
+        assert!(DirectLDT::verify_low_degree_single_round(
+            sampled_element,
+            sampled_evaluation,
+            &low_degree_poly
+        ))
     }
 }
