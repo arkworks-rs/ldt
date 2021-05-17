@@ -13,7 +13,7 @@ pub struct Radix2CosetDomain<F: PrimeField> {
 
 impl<F: PrimeField> Radix2CosetDomain<F> {
     /// Returns a new coset domain.
-    pub fn new(base_domain: D, offset: F) -> Self {
+    pub fn new(base_domain: Radix2EvaluationDomain<F>, offset: F) -> Self {
         Radix2CosetDomain {
             base_domain,
             offset,

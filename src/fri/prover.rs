@@ -1,8 +1,6 @@
 use ark_ff::PrimeField;
-use ark_r1cs_std::poly::domain::EvaluationDomain;
 use ark_r1cs_std::poly::evaluations::univariate::lagrange_interpolator::LagrangeInterpolator;
 use std::marker::PhantomData;
-use crate::direct::Radix2CosetDomain;
 use crate::domain::Radix2CosetDomain;
 
 pub struct FRIProver<F: PrimeField> {
@@ -26,14 +24,14 @@ impl<F: PrimeField> FRIProver<F> {
         let domain_size = domain.base_domain.size;
         let dist_between_coset_elems = domain_size / coset_size;
         let mut new_evals = Vec::with_capacity(dist_between_coset_elems as usize);
-        let coset_generator = domain.gen.pow(&[1 << (domain.dim - localization_param)]);
+        let coset_generator = domain.gen().pow(&[1 << (domain.dim() as u64 - localization_param)]);
         let mut cur_coset_offset = domain.offset;
 
         for coset_index in 0..dist_between_coset_elems {
             let mut poly_evals = Vec::new();
             for intra_coset_index in 0..coset_size {
                 poly_evals.push(
-                    poly_over_domain[coset_index + intra_coset_index * dist_between_coset_elems],
+                    poly_over_domain[(coset_index + intra_coset_index * dist_between_coset_elems) as usize],
                 );
             }
 
@@ -44,10 +42,10 @@ impl<F: PrimeField> FRIProver<F> {
                 poly_evals,
             );
             new_evals.push(interpolator.interpolate(alpha));
-            cur_coset_offset *= domain.gen;
+            cur_coset_offset *= domain.gen();
         }
 
-        let mut c = Radix2CosetDomain::new(coset_size, domain.offset);
+        let mut c = Radix2CosetDomain::new_radix2_coset(coset_size as usize, domain.offset);
         c.base_domain.group_gen = coset_generator;
 
         (c, new_evals)

@@ -1,9 +1,7 @@
 #![forbid(unsafe_code)]
 
 use ark_ff::PrimeField;
-use ark_r1cs_std::poly::domain::EvaluationDomain;
 use std::marker::PhantomData;
-use crate::direct::Radix2CosetDomain;
 use crate::domain::Radix2CosetDomain;
 
 pub mod prover;

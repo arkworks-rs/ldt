@@ -84,7 +84,7 @@ mod tests {
             .iter()
             .map(|x| FpVar::new_witness(ark_relations::ns!(cs, "eval_var"), || Ok(*x)).unwrap())
             .collect();
-        let r1cs_coset = ark_r1cs_std::poly::domain::EvaluationDomain {
+        let r1cs_coset = ark_r1cs_std::poly::domain::Radix2Domain {
             gen: base_domain.group_gen,
             offset,
             dim: ark_std::log2(degree.next_power_of_two()) as u64,

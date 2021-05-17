@@ -1,9 +1,7 @@
 use crate::fri::FRIParameters;
 use ark_ff::PrimeField;
-use ark_r1cs_std::poly::domain::EvaluationDomain;
 use ark_sponge::{FieldBasedCryptographicSponge, FieldElementSize};
 use std::marker::PhantomData;
-use crate::direct::Radix2CosetDomain;
 use crate::domain::Radix2CosetDomain;
 use ark_poly::Polynomial;
 
@@ -43,12 +41,14 @@ impl<F: PrimeField> FRIVerifier<F> {
         fri_parameters: &FRIParameters<F>,
     ) -> Vec<Radix2CosetDomain<F>> {
         let num_fri_rounds = fri_parameters.localization_parameters.len();
-        let mut curr_offset = fri_parameters.domain.offset * fri_parameters.domain.gen().pow(&[rand_coset_index as u64]);
+
+        // this does not include domain.offset! multiply domain.offset in use
+        let mut curr_gen_offset = fri_parameters.domain.gen().pow(&[rand_coset_index as u64]);
         let mut queries = Vec::with_capacity(num_fri_rounds);
         // sample a coset index
         for i in 0..num_fri_rounds {
             let coset_size = 1 << fri_parameters.localization_parameters[i];
-            let coset_offset = curr_offset;
+            let coset_offset = fri_parameters.domain.offset * curr_gen_offset;
 
             // // TODO: debug only. seems that it's not necessary
             // // coset_generator = root of unity of order coset_size
@@ -57,13 +57,13 @@ impl<F: PrimeField> FRIVerifier<F> {
             //     1 << (fri_parameters.domain.dim - fri_parameters.localization_parameters[i])
             // ]);
 
-            let mut c = Radix2CosetDomain::new(coset_size, coset_offset);
-            c.base_domain.group_gen = fri_parameters.domain.gen.pow(&[
-                    1 << (fri_parameters.domain.dim - fri_parameters.localization_parameters[i])]);
-            debug_assert_eq!(c.base_domain.group_gen.pow(&[coset_size]), F::one());
+            let mut c = Radix2CosetDomain::new_radix2_coset(coset_size, coset_offset);
+            c.base_domain.group_gen = fri_parameters.domain.gen().pow(&[
+                    1 << (fri_parameters.domain.dim() - fri_parameters.localization_parameters[i] as usize)]);
+            debug_assert_eq!(c.base_domain.group_gen.pow(&[coset_size as u64]), F::one());
             queries.push(c);
 
-            curr_offset = curr_offset.pow(&[coset_size as u64]); // set next coset where current current folded coset is in
+            curr_gen_offset = curr_gen_offset.pow(&[coset_size as u64]); // set next coset where current current folded coset is in
         }
 
         queries
