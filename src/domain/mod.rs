@@ -26,6 +26,28 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
         Self::new(Radix2EvaluationDomain::new(num_coeffs).unwrap(), offset)
     }
 
+    /// Query a coset according to its position. Returns the positions of coset elements in `self`,
+    /// and the result coset represented as domain.
+    pub fn query_position_to_cosets(&self, coset_position: usize, log_coset_size: usize) -> (Vec<usize>, Self){
+        // make sure coset position is not out of range
+        assert!(coset_position < (1 << (self.base_domain.log_size_of_group - log_coset_size as u32)), "coset position out of range");
+
+        // generate coset
+        let mut c = Self::new_radix2_coset(1 << log_coset_size, self.offset);
+        c.base_domain.group_gen = self.gen().pow(&[
+            1 << (self.dim() - log_coset_size as usize)]);
+        c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap();
+
+        // generate positions
+        let mut indices = Vec::with_capacity(1 << log_coset_size);
+        indices.push(coset_position);
+        for i in 1..(1 << (log_coset_size as usize)) {
+            indices.push(indices[i-1] + coset_position)
+        }
+
+        (indices, c)
+    }
+
 
 
     /// returns the size of the domain
