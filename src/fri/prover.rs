@@ -52,6 +52,15 @@ impl<F: PrimeField> FRIProver<F> {
         debug_assert_eq!(c.size(), new_evals.len());
         (c, new_evals)
     }
+
+    /// Returns the domain returned by `interactive_phase_single_round` without supplying evaluations
+    /// over domain. This method is useful for verifiers.
+    pub fn fold_domain(domain: Radix2CosetDomain<F>, localization_param: u64) -> Radix2CosetDomain<F> {
+        let coset_size = 1 << localization_param;
+        let domain_size = domain.base_domain.size;
+        let dist_between_coset_elems = domain_size / coset_size;
+        Radix2CosetDomain::new_radix2_coset(dist_between_coset_elems as usize, domain.offset)
+    }
 }
 
 
@@ -97,6 +106,10 @@ pub mod tests{
             sampled_element,
             sampled_evaluation,
             &low_degree_poly
-        ))
+        ));
+
+        // test `fold_domain`
+        let fold_domain = FRIProver::fold_domain(domain_coset.clone(), localization);
+        assert_eq!(fold_domain, domain_next_round);
     }
 }

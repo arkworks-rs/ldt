@@ -4,6 +4,7 @@ use ark_sponge::{FieldBasedCryptographicSponge, FieldElementSize};
 use std::marker::PhantomData;
 use crate::domain::Radix2CosetDomain;
 use ark_poly::Polynomial;
+use crate::direct::DirectLDT;
 
 /// Implements FRI verifier.
 pub struct FRIVerifier<F: PrimeField> {
@@ -34,36 +35,31 @@ impl<F: PrimeField> FRIVerifier<F> {
 
     /// ## Step 2: Query Phase (Prepare Query)
     /// Prepare all the queries in query phase. The returned value `queries[i]` is the coset query
-    /// of the `ith` round polynomial. Final polynomial is not queried. Instead, verifier will get
+    /// of the `ith` round polynomial (including codeword polynomial but does not include final polynomial).
+    /// Final polynomial is not queried. Instead, verifier will get
     /// the whole final polynomial in evaluation form, and do direct LDT.
     pub fn prepare_queries(
         rand_coset_index: usize,
         fri_parameters: &FRIParameters<F>,
-    ) -> Vec<Radix2CosetDomain<F>> {
+    ) -> (Vec<Radix2CosetDomain<F>>) {
         let num_fri_rounds = fri_parameters.localization_parameters.len();
 
         // this does not include domain.offset! multiply domain.offset in use
-        let mut curr_gen_offset = fri_parameters.domain.gen().pow(&[rand_coset_index as u64]);
+        let mut curr_coset_offset = fri_parameters.domain.gen().pow(&[rand_coset_index as u64]);
         let mut queries = Vec::with_capacity(num_fri_rounds);
         // sample a coset index
         for i in 0..num_fri_rounds {
             let coset_size = 1 << fri_parameters.localization_parameters[i];
-            let coset_offset = fri_parameters.domain.offset * curr_gen_offset;
-
-            // // TODO: debug only. seems that it's not necessary
-            // // coset_generator = root of unity of order coset_size
-            // // for L's generator g, it equals g^{1 << (L.dim - localization_parameter)}
-            // let coset_generator = fri_parameters.domain.gen.pow(&[
-            //     1 << (fri_parameters.domain.dim - fri_parameters.localization_parameters[i])
-            // ]);
+            let coset_offset = fri_parameters.domain.offset * curr_coset_offset;
 
             let mut c = Radix2CosetDomain::new_radix2_coset(coset_size, coset_offset);
             c.base_domain.group_gen = fri_parameters.domain.gen().pow(&[
                     1 << (fri_parameters.domain.dim() - fri_parameters.localization_parameters[i] as usize)]);
+            c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap();
             debug_assert_eq!(c.base_domain.group_gen.pow(&[coset_size as u64]), F::one());
             queries.push(c);
 
-            curr_gen_offset = curr_gen_offset.pow(&[coset_size as u64]); // set next coset where current current folded coset is in
+            curr_coset_offset = curr_coset_offset.pow(&[coset_size as u64]); // set next coset where current current folded coset is in
         }
 
         queries
@@ -74,28 +70,50 @@ impl<F: PrimeField> FRIVerifier<F> {
     /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
     /// is consistent with each other, and the final polynomial is low-degree.
     ///
-    /// `queries[i]` is the coset query of the `ith` round polynomial. `queried_evaluations` stores the result of
-    /// corresponding query.
+    /// `queries[i]` is the coset query of the `ith` round polynomial, including the codeword polynomial.
+    /// `queried_evaluations` stores the result of corresponding query.
     pub fn consistency_check(
         fri_parameters: &FRIParameters<F>,
         queried_coset_index: usize,
         queries: &[Radix2CosetDomain<F>],
         queried_evaluations: &[Vec<F>],
         alphas: &[F],
+        final_polynomial_domain: &Radix2CosetDomain<F>,
         final_polynomial: &[F]
-    ) {
+    ) -> bool {
         let mut curr_coset_index = queried_coset_index;
+        // this does not include domain.offset! multiply domain.offset in use
         let mut curr_coset_offset = fri_parameters.domain.gen().pow(&[curr_coset_index as u64]);
         let mut expected_round_eval = F::zero();
 
-        for i in 0..queries.len(){
+        debug_assert_eq!(fri_parameters.localization_parameters.len(), queries.len());
+        for i in 0..queries.len() {
             expected_round_eval = FRIVerifier::expected_evaluation(&queries[i], queried_evaluations[i].clone(), alphas[i]);
 
-            // check if current round result is consistent with next round polynomial
-            if i != queries.len() - 1 {
+            // check if current round result is consistent with next round polynomial (if next round is not final)
+            if i < queries.len() - 1 {
+                let next_localization_param = fri_parameters.localization_parameters[i + 1] as usize;
+                let next_intra_coset_index = &curr_coset_index >> next_localization_param;
 
+                let actual = queried_evaluations[i+1][next_intra_coset_index];
+                if expected_round_eval != actual {
+                    return false
+                }
+                curr_coset_index = curr_coset_index & ((1 << next_localization_param) - 1)
             }
+
+            curr_coset_offset = curr_coset_offset.pow(&[1 << fri_parameters.localization_parameters[i] as u64]);
         }
+
+        // check final polynomial (low degree & consistency check)
+        // TODO: We assume degree_bound is power of 2 for now. Remove such constraint.
+        let total_shrink_factor: u64 = fri_parameters.localization_parameters.iter().sum();
+        let final_poly_degree_bound = fri_parameters.tested_degree >> total_shrink_factor;
+
+        let final_ldt = DirectLDT::generate_low_degree_coefficients(final_polynomial_domain.clone(),
+                                                                    final_polynomial.to_vec(),
+                                                                    final_poly_degree_bound as usize);
+        DirectLDT::verify_low_degree_single_round(curr_coset_offset, expected_round_eval, &final_ldt)
     }
 
     /// Map coset in current round to a single point in next round.
