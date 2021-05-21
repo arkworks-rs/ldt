@@ -45,21 +45,24 @@ impl<F: PrimeField> FRIVerifier<F> {
         let num_fri_rounds = fri_parameters.localization_parameters.len();
 
         // this does not include domain.offset! multiply domain.offset in use
-        let mut curr_coset_offset = fri_parameters.domain.gen().pow(&[rand_coset_index as u64]);
+        let mut curr_coset_index = rand_coset_index;
         let mut queries = Vec::with_capacity(num_fri_rounds);
+        let mut curr_domain_coset_size = fri_parameters.domain.size();
         // sample a coset index
         for i in 0..num_fri_rounds {
-            let coset_size = 1 << fri_parameters.localization_parameters[i];
-            let coset_offset = fri_parameters.domain.offset * curr_coset_offset;
+            // current coset index = last coset index % (distance between coset at current round)
+            // edge case: at first round, this still applies
 
-            let mut c = Radix2CosetDomain::new_radix2_coset(coset_size, coset_offset);
-            c.base_domain.group_gen = fri_parameters.domain.gen().pow(&[
-                    1 << (fri_parameters.domain.dim() - fri_parameters.localization_parameters[i] as usize)]);
-            c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap();
-            debug_assert_eq!(c.base_domain.group_gen.pow(&[coset_size as u64]), F::one());
-            queries.push(c);
+            let dist_between_coset_elems = curr_domain_coset_size / (1 << fri_parameters.localization_parameters[i]);
+            curr_coset_index = curr_coset_index & ((1 << dist_between_coset_elems) - 1);
 
-            curr_coset_offset = curr_coset_offset.pow(&[coset_size as u64]); // set next coset where current current folded coset is in
+            let (_, query_coset) = fri_parameters.domain.query_position_to_coset(curr_coset_index,
+                                                                     fri_parameters.localization_parameters[i] as usize);
+
+            queries.push(query_coset);
+
+            // get next round coset size
+            curr_domain_coset_size = dist_between_coset_elems;
         }
 
         queries
@@ -106,7 +109,8 @@ impl<F: PrimeField> FRIVerifier<F> {
         }
 
         // check final polynomial (low degree & consistency check)
-        // TODO: We assume degree_bound is power of 2 for now. Remove such constraint.
+        // We assume degree_bound is power of 2.
+        assert!(fri_parameters.tested_degree.is_power_of_two());
         let total_shrink_factor: u64 = fri_parameters.localization_parameters.iter().sum();
         let final_poly_degree_bound = fri_parameters.tested_degree >> total_shrink_factor;
 

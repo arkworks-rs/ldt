@@ -150,12 +150,6 @@ mod tests{
         assert_eq!(query_coset.element(2), domain_coset.element(10));
         assert_eq!(query_coset.element(3), domain_coset.element(14));
 
-        assert_eq!(query_coset.gen().pow(&[4u64]), Fr::one());
-
-        println!("{:?}", evals_on_domain_coset);
-
-        assert_eq!(poly.evaluate(&query_coset.element(3)), evals_on_domain_coset[14]);
-
         assert_eq!(query_coset.evaluate(&poly), vec![evals_on_domain_coset[2], evals_on_domain_coset[6], evals_on_domain_coset[10], evals_on_domain_coset[14]])
     }
 }
