@@ -10,7 +10,7 @@ edition = "2018"
 ark-ff = { version = "^0.2.0", default-features = false }
 ark-std = { version = "^0.2.0", default-features = false }
 ark-relations = { version = "^0.2.0", default-features = false }
-ark-r1cs-std = { git = "https://github.com/tsunrise/r1cs-std.git", branch = "domain", default-features = false}
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", default-features = false}
 ark-sponge = { git = "https://github.com/arkworks-rs/sponge/", branch = "experimental", default-features = false }
 ark-poly = { version = "0.2.0", default-features = false }
 
