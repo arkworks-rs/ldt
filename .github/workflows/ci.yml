@@ -50,14 +50,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Check examples
         uses: actions-rs/cargo@v1
         with:
@@ -75,16 +67,14 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
             command: check
-            args: --all-features --examples --workspace --benches
+            args: --all-features --examples --all --benches
         if: matrix.rust == 'nightly'
 
       - name: Test
         uses: actions-rs/cargo@v1
         with:
             command: test
-            args: "--workspace \
-                   --all-features \
-                   --exclude ark-poly-benches"
+            args: --release
 
   check_no_std:
     name: Check no_std
@@ -100,29 +90,16 @@ jobs:
           target: thumbv6m-none-eabi
           override: true
 
-      - name: Install Rust ARM64 (${{ matrix.rust }})
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: aarch64-unknown-none
-          override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: check
+      - name: Build
         uses: actions-rs/cargo@v1
         with:
-            command: check
-            args: --examples --workspace --exclude ark-poly-benches --target thumbv6m-none-eabi
+          use-cross: true
+          command: build
+          args: --no-default-features --target thumbv6m-none-eabi
 
-      - name: build
+      - name: Check
         uses: actions-rs/cargo@v1
         with:
-            command: build
-            args: --workspace --exclude ark-poly-benches --target thumbv6m-none-eabi
+          use-cross: true
+          command: check
+          args: --examples --no-default-features --target thumbv6m-none-eabi
