@@ -197,7 +197,7 @@ mod tests{
         );
 
         // verifier prepare queries
-        let rand_coset_index = 5;
+        let rand_coset_index = 31;
         let (query_cosets, query_indices) = FRIVerifier::prepare_queries(rand_coset_index, &fri_parameters);
         assert_eq!(query_indices.len(), 3);
 
@@ -228,7 +228,6 @@ mod tests{
                                        &evaluations_final);
 
         assert!(result)
-
 
     }
 }
