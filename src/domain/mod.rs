@@ -1,13 +1,15 @@
 use ark_ff::PrimeField;
-use ark_poly::{EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain, UVPolynomial};
 use ark_poly::polynomial::univariate::DensePolynomial;
-
+use ark_poly::{EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain, UVPolynomial};
+use ark_std::vec::Vec;
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
 ///
 /// Constraint equivalent is in `r1cs_std::poly::domain`.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Radix2CosetDomain<F: PrimeField> {
+    /// A non-coset radix 2 domain: `<g>`
     pub base_domain: Radix2EvaluationDomain<F>,
+    /// offset `h`
     pub offset: F,
 }
 
@@ -27,29 +29,40 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
 
     /// Query a coset according to its position. Returns the positions of coset elements in `self`,
     /// and the result coset represented as domain.
-    pub fn query_position_to_coset(&self, coset_position: usize, log_coset_size: usize) -> (Vec<usize>, Self){
+    pub fn query_position_to_coset(
+        &self,
+        coset_position: usize,
+        log_coset_size: usize,
+    ) -> (Vec<usize>, Self) {
         // make sure coset position is not out of range
-        assert!(log_coset_size < self.base_domain.log_size_of_group as usize, "query coset size too large");
-        assert!(coset_position < (1 << (self.base_domain.log_size_of_group - log_coset_size as u32)), "coset position out of range");
+        assert!(
+            log_coset_size < self.base_domain.log_size_of_group as usize,
+            "query coset size too large"
+        );
+        assert!(
+            coset_position < (1 << (self.base_domain.log_size_of_group - log_coset_size as u32)),
+            "coset position out of range"
+        );
 
-        let dist_between_coset_elems = 1 << (self.base_domain.log_size_of_group as usize - log_coset_size);
+        let dist_between_coset_elems =
+            1 << (self.base_domain.log_size_of_group as usize - log_coset_size);
 
         // generate coset
-        let mut c = Self::new_radix2_coset(1 << log_coset_size, self.offset * self.gen().pow(&[coset_position as u64]));
-        c.base_domain.group_gen = self.gen().pow(&[
-            1 << (self.dim() - log_coset_size as usize)]);
+        let mut c = Self::new_radix2_coset(
+            1 << log_coset_size,
+            self.offset * self.gen().pow(&[coset_position as u64]),
+        );
+        c.base_domain.group_gen = self.gen().pow(&[1 << (self.dim() - log_coset_size)]);
         c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap();
 
         // generate positions
         let mut indices = Vec::with_capacity(1 << log_coset_size);
-        for i in 0..(1 << (log_coset_size as usize)) {
+        for i in 0..(1 << log_coset_size) {
             indices.push(coset_position + i * dist_between_coset_elems)
         }
 
         (indices, c)
     }
-
-
 
     /// returns the size of the domain
     pub fn size(&self) -> usize {
@@ -97,7 +110,11 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
     pub fn evaluate(&self, poly: &DensePolynomial<F>) -> Vec<F> {
         if self.size() < poly.degree() + 1 {
             // we use naive method. TODO: use a more efficient method
-            return self.base_domain.elements().map(|g|poly.evaluate(&(self.offset * g))).collect()
+            return self
+                .base_domain
+                .elements()
+                .map(|g| poly.evaluate(&(self.offset * g)))
+                .collect();
         }
         // g(x) = f(hx). So, f(coset) = g(base_domain)
         let gx = self.add_offset_to_coeffs(poly);
@@ -121,16 +138,16 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
 }
 
 #[cfg(test)]
-mod tests{
-    use ark_poly::{Polynomial, UVPolynomial};
+mod tests {
     use ark_poly::univariate::DensePolynomial;
+    use ark_poly::{Polynomial, UVPolynomial};
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 
     use crate::domain::Radix2CosetDomain;
 
     #[test]
-    fn query_coset_test(){
+    fn query_coset_test() {
         let mut rng = test_rng();
         let poly = DensePolynomial::rand(4, &mut rng);
 
@@ -138,18 +155,28 @@ mod tests{
         let domain_coset = Radix2CosetDomain::new_radix2_coset(15, offset);
 
         let evals_on_domain_coset = domain_coset.evaluate(&poly);
-        assert_eq!(poly.evaluate(&domain_coset.element(2)), evals_on_domain_coset[2]);
+        assert_eq!(
+            poly.evaluate(&domain_coset.element(2)),
+            evals_on_domain_coset[2]
+        );
 
-        let (query_coset_pos, query_coset)
-            = domain_coset.query_position_to_coset(2, 2);
+        let (query_coset_pos, query_coset) = domain_coset.query_position_to_coset(2, 2);
 
-        assert_eq!(query_coset_pos, vec![2,6,10,14]);
+        assert_eq!(query_coset_pos, vec![2, 6, 10, 14]);
 
         assert_eq!(query_coset.element(0), domain_coset.element(2));
         assert_eq!(query_coset.element(1), domain_coset.element(6));
         assert_eq!(query_coset.element(2), domain_coset.element(10));
         assert_eq!(query_coset.element(3), domain_coset.element(14));
 
-        assert_eq!(query_coset.evaluate(&poly), vec![evals_on_domain_coset[2], evals_on_domain_coset[6], evals_on_domain_coset[10], evals_on_domain_coset[14]])
+        assert_eq!(
+            query_coset.evaluate(&poly),
+            vec![
+                evals_on_domain_coset[2],
+                evals_on_domain_coset[6],
+                evals_on_domain_coset[10],
+                evals_on_domain_coset[14]
+            ]
+        )
     }
 }

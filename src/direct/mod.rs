@@ -1,9 +1,9 @@
+use crate::domain::Radix2CosetDomain;
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Polynomial;
-use std::marker::PhantomData;
-use crate::domain::Radix2CosetDomain;
-
+use ark_std::marker::PhantomData;
+use ark_std::vec::Vec;
 pub struct DirectLDT<F: PrimeField> {
     marker: PhantomData<F>,
 }
@@ -43,7 +43,7 @@ impl<F: PrimeField> DirectLDT<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::direct::{Radix2CosetDomain, DirectLDT};
+    use crate::direct::{DirectLDT, Radix2CosetDomain};
     use ark_ff::UniformRand;
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::{EvaluationDomain, Polynomial, Radix2EvaluationDomain, UVPolynomial};

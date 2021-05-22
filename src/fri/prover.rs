@@ -1,8 +1,9 @@
+use crate::domain::Radix2CosetDomain;
 use ark_ff::PrimeField;
 use ark_r1cs_std::poly::evaluations::univariate::lagrange_interpolator::LagrangeInterpolator;
-use std::marker::PhantomData;
-use crate::domain::Radix2CosetDomain;
-
+use ark_std::marker::PhantomData;
+use ark_std::vec::Vec;
+/// FRI Prover
 pub struct FRIProver<F: PrimeField> {
     _prover: PhantomData<F>,
 }
@@ -24,14 +25,17 @@ impl<F: PrimeField> FRIProver<F> {
         let domain_size = domain.base_domain.size;
         let dist_between_coset_elems = domain_size / coset_size;
         let mut new_evals = Vec::with_capacity(dist_between_coset_elems as usize);
-        let coset_generator = domain.gen().pow(&[1 << (domain.dim() as u64 - localization_param)]);
+        let coset_generator = domain
+            .gen()
+            .pow(&[1 << (domain.dim() as u64 - localization_param)]);
         let mut cur_coset_offset = domain.offset;
 
         for coset_index in 0..dist_between_coset_elems {
             let mut poly_evals = Vec::new();
             for intra_coset_index in 0..coset_size {
                 poly_evals.push(
-                    poly_over_domain[(coset_index + intra_coset_index * dist_between_coset_elems) as usize],
+                    poly_over_domain
+                        [(coset_index + intra_coset_index * dist_between_coset_elems) as usize],
                 );
             }
 
@@ -55,7 +59,10 @@ impl<F: PrimeField> FRIProver<F> {
 
     /// Returns the domain returned by `interactive_phase_single_round` without supplying evaluations
     /// over domain. This method is useful for verifiers.
-    pub fn fold_domain(domain: Radix2CosetDomain<F>, localization_param: u64) -> Radix2CosetDomain<F> {
+    pub fn fold_domain(
+        domain: Radix2CosetDomain<F>,
+        localization_param: u64,
+    ) -> Radix2CosetDomain<F> {
         let coset_size = 1 << localization_param;
         let domain_size = domain.base_domain.size;
         let dist_between_coset_elems = domain_size / coset_size;
@@ -63,19 +70,18 @@ impl<F: PrimeField> FRIProver<F> {
     }
 }
 
-
 #[cfg(test)]
-pub mod tests{
-    use ark_std::{test_rng, UniformRand};
-    use ark_test_curves::bls12_381::Fr;
-    use crate::domain::Radix2CosetDomain;
+pub mod tests {
     use crate::direct::DirectLDT;
+    use crate::domain::Radix2CosetDomain;
+    use crate::fri::prover::FRIProver;
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::UVPolynomial;
-    use crate::fri::prover::FRIProver;
+    use ark_std::{test_rng, UniformRand};
+    use ark_test_curves::bls12_381::Fr;
 
     #[test]
-    fn degree_reduction_test(){
+    fn degree_reduction_test() {
         let degree = 32;
 
         let mut rng = test_rng();
@@ -86,18 +92,18 @@ pub mod tests{
         // fri prover should reduce its degree
         let alpha = Fr::rand(&mut rng);
         let localization = 2;
-        let (domain_next_round, eval_next_round) =
-            FRIProver::interactive_phase_single_round(domain_coset.clone(),
-                                                               evaluations.to_vec(),
-                                                               localization,
-                                                               alpha);
+        let (domain_next_round, eval_next_round) = FRIProver::interactive_phase_single_round(
+            domain_coset.clone(),
+            evaluations.to_vec(),
+            localization,
+            alpha,
+        );
 
         let low_degree_poly = DirectLDT::generate_low_degree_coefficients(
             domain_next_round.clone(),
             eval_next_round.to_vec(),
             degree / (1 << localization),
         );
-
 
         let sampled_element = domain_next_round.element(15);
         let sampled_evaluation = eval_next_round[15];

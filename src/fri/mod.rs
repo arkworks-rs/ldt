@@ -1,14 +1,17 @@
 #![forbid(unsafe_code)]
 
-use ark_ff::PrimeField;
-use std::marker::PhantomData;
 use crate::domain::Radix2CosetDomain;
-
+use ark_ff::PrimeField;
+use ark_std::marker::PhantomData;
+use ark_std::vec::Vec;
+/// Prover used by FRI protocol.
 pub mod prover;
 #[cfg(test)]
 mod test;
+/// Verifier used by FRI protocol.
 pub mod verifier;
 
+/// Some parameters used by FRI verifiers.
 pub struct FRIParameters<F: PrimeField> {
     /// The degree
     pub tested_degree: u64,
@@ -17,23 +20,37 @@ pub struct FRIParameters<F: PrimeField> {
     /// Evaluation domain, which is represented as a coset.
     pub domain: Radix2CosetDomain<F>,
     /// coset sizes in each round (first round is input coset)
-    log_round_coset_sizes: Vec<usize>
+    log_round_coset_sizes: Vec<usize>,
 }
 
 impl<F: PrimeField> FRIParameters<F> {
     /// Check parameter validity and returns new `FRIParameters`.
-    pub fn new(tested_degree: u64, localization_parameters: Vec<u64>, domain: Radix2CosetDomain<F>) -> Self {
-        assert!(domain.size() >= tested_degree as usize + 1, "Evaluations is not low degree!\
-                Domain size needs to be >= tested_degree + 1");
+    pub fn new(
+        tested_degree: u64,
+        localization_parameters: Vec<u64>,
+        domain: Radix2CosetDomain<F>,
+    ) -> Self {
+        assert!(
+            domain.size() >= tested_degree as usize + 1,
+            "Evaluations is not low degree!\
+                Domain size needs to be >= tested_degree + 1"
+        );
         let mut log_round_coset_sizes = Vec::new();
         log_round_coset_sizes.push(domain.dim());
-        for i in 0..localization_parameters.len(){
-            log_round_coset_sizes.push(log_round_coset_sizes[i] - localization_parameters[i] as usize)
+        for i in 0..localization_parameters.len() {
+            log_round_coset_sizes
+                .push(log_round_coset_sizes[i] - localization_parameters[i] as usize)
         }
-        FRIParameters { tested_degree, localization_parameters, domain, log_round_coset_sizes}
+        FRIParameters {
+            tested_degree,
+            localization_parameters,
+            domain,
+            log_round_coset_sizes,
+        }
     }
 }
 
+/// Fast Reed-Solomon Interactive Oracle Proof of Proximity
 pub struct FRI<F: PrimeField> {
     _protocol: PhantomData<F>,
 }
