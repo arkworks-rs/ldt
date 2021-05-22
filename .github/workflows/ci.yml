@@ -3,7 +3,8 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
+      - work
 env:
   RUST_BACKTRACE: 1
 
