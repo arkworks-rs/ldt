@@ -5,7 +5,7 @@ use ark_poly::polynomial::univariate::DensePolynomial;
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
 ///
 /// Constraint equivalent is in `r1cs_std::poly::domain`.
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Radix2CosetDomain<F: PrimeField> {
     pub base_domain: Radix2EvaluationDomain<F>,
     pub offset: F,

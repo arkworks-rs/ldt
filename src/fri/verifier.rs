@@ -38,12 +38,14 @@ impl<F: PrimeField> FRIVerifier<F> {
     /// of the `ith` round polynomial (including codeword polynomial but does not include final polynomial).
     /// Final polynomial is not queried. Instead, verifier will get
     /// the whole final polynomial in evaluation form, and do direct LDT.
+    ///
+    /// Returns the all query domains, and query coset index
     pub fn prepare_queries(
         rand_coset_index: usize,
         fri_parameters: &FRIParameters<F>,
-    ) -> (Vec<Radix2CosetDomain<F>>) {
+    ) -> (Vec<Radix2CosetDomain<F>>, Vec<usize>) {
         let num_fri_rounds = fri_parameters.localization_parameters.len();
-
+        let mut coset_indices = Vec::new();
         // this does not include domain.offset! multiply domain.offset in use
         let mut curr_coset_index = rand_coset_index;
         let mut queries = Vec::with_capacity(num_fri_rounds);
@@ -54,7 +56,9 @@ impl<F: PrimeField> FRIVerifier<F> {
             // edge case: at first round, this still applies
 
             let dist_between_coset_elems = curr_domain_coset_size / (1 << fri_parameters.localization_parameters[i]);
-            curr_coset_index = curr_coset_index & ((1 << dist_between_coset_elems) - 1);
+            curr_coset_index = curr_coset_index % dist_between_coset_elems;
+
+            coset_indices.push(curr_coset_index);
 
             let (_, query_coset) = fri_parameters.domain.query_position_to_coset(curr_coset_index,
                                                                      fri_parameters.localization_parameters[i] as usize);
@@ -65,7 +69,7 @@ impl<F: PrimeField> FRIVerifier<F> {
             curr_domain_coset_size = dist_between_coset_elems;
         }
 
-        queries
+        (queries, coset_indices)
     }
 
     /// ## Step 3: Query Phase (Check query)
@@ -77,35 +81,30 @@ impl<F: PrimeField> FRIVerifier<F> {
     /// `queried_evaluations` stores the result of corresponding query.
     pub fn consistency_check(
         fri_parameters: &FRIParameters<F>,
-        queried_coset_index: usize,
+        queried_coset_indices: &[usize],
         queries: &[Radix2CosetDomain<F>],
         queried_evaluations: &[Vec<F>],
         alphas: &[F],
         final_polynomial_domain: &Radix2CosetDomain<F>,
         final_polynomial: &[F]
     ) -> bool {
-        let mut curr_coset_index = queried_coset_index;
-        // this does not include domain.offset! multiply domain.offset in use
-        let mut curr_coset_offset = fri_parameters.domain.gen().pow(&[curr_coset_index as u64]);
-        let mut expected_round_eval = F::zero();
+        let mut expected_next_round_eval = F::zero();
 
         debug_assert_eq!(fri_parameters.localization_parameters.len(), queries.len());
         for i in 0..queries.len() {
-            expected_round_eval = FRIVerifier::expected_evaluation(&queries[i], queried_evaluations[i].clone(), alphas[i]);
+            expected_next_round_eval = FRIVerifier::expected_evaluation(&queries[i], queried_evaluations[i].clone(), alphas[i]);
 
             // check if current round result is consistent with next round polynomial (if next round is not final)
             if i < queries.len() - 1 {
                 let next_localization_param = fri_parameters.localization_parameters[i + 1] as usize;
-                let next_intra_coset_index = &curr_coset_index >> next_localization_param;
+                let log_next_dist_between_coset_elems = fri_parameters.log_round_coset_sizes[i + 1] - next_localization_param;
+                let next_intra_coset_index = queried_coset_indices[i] >> log_next_dist_between_coset_elems;
 
                 let actual = queried_evaluations[i+1][next_intra_coset_index];
-                if expected_round_eval != actual {
+                if expected_next_round_eval != actual {
                     return false
                 }
-                curr_coset_index = curr_coset_index & ((1 << next_localization_param) - 1)
             }
-
-            curr_coset_offset = curr_coset_offset.pow(&[1 << fri_parameters.localization_parameters[i] as u64]);
         }
 
         // check final polynomial (low degree & consistency check)
@@ -114,10 +113,13 @@ impl<F: PrimeField> FRIVerifier<F> {
         let total_shrink_factor: u64 = fri_parameters.localization_parameters.iter().sum();
         let final_poly_degree_bound = fri_parameters.tested_degree >> total_shrink_factor;
 
+        let final_element_index = *queried_coset_indices.last().unwrap();
+
         let final_ldt = DirectLDT::generate_low_degree_coefficients(final_polynomial_domain.clone(),
                                                                     final_polynomial.to_vec(),
-                                                                    final_poly_degree_bound as usize);
-        DirectLDT::verify_low_degree_single_round(curr_coset_offset, expected_round_eval, &final_ldt)
+                                                                    1000);  // for debug
+        DirectLDT::verify_low_degree_single_round(final_polynomial_domain.element(final_element_index),
+                                                  expected_next_round_eval, &final_ldt)
     }
 
     /// Map coset in current round to a single point in next round.
@@ -141,4 +143,82 @@ fn le_bits_array_to_usize(bits: &[bool]) -> usize {
         result *= 2;
     }
     result
+}
+
+#[cfg(test)]
+mod tests{
+    use ark_poly::univariate::DensePolynomial;
+    use ark_poly::{UVPolynomial, Polynomial};
+    use ark_std::test_rng;
+    use crate::domain::Radix2CosetDomain;
+    use ark_test_curves::bls12_381::Fr;
+    use ark_ff::UniformRand;
+    use crate::fri::prover::FRIProver;
+    use crate::fri::verifier::FRIVerifier;
+    use crate::fri::FRIParameters;
+
+    #[test]
+    fn two_rounds_fri_test(){
+        // First, generate a low degree polynomial, and its evaluations.
+        let mut rng = test_rng();
+        let poly = DensePolynomial::rand(32,  &mut rng);
+        let offset = Fr::rand(&mut rng);
+        let domain_input = Radix2CosetDomain::new_radix2_coset(128, offset);
+        let evaluations_input = domain_input.evaluate(&poly);
+
+        // Set up verifier parameter
+        let fri_parameters = FRIParameters::new(32, vec![1, 2, 1], domain_input);
+        let alphas: Vec<_> = (0..3).map(|_|Fr::rand(&mut rng)).collect();
+
+        // prover commits all round polynomial
+        let (domain_round_0, evaluations_round_0)
+            = FRIProver::interactive_phase_single_round(domain_input,
+                                                        evaluations_input.clone(),
+                                                        fri_parameters.localization_parameters[0],
+                                                        alphas[0]);
+
+        let (domain_round_1, evaluations_round_1)
+            = FRIProver::interactive_phase_single_round(domain_round_0,
+                                                        evaluations_round_0.clone(),
+                                                        fri_parameters.localization_parameters[1],
+                                                        alphas[1]);
+
+        let (domain_final, evaluations_final)
+            = FRIProver::interactive_phase_single_round(domain_round_1,
+                                                        evaluations_round_1.clone(),
+                                                        fri_parameters.localization_parameters[2],
+                                                        alphas[2]
+        );
+
+        // verifier prepare queries
+        let rand_coset_index = 5;
+        let (query_cosets, query_indices) = FRIVerifier::prepare_queries(rand_coset_index, &fri_parameters);
+        assert_eq!(query_indices.len(), 3);
+
+        // prover generate answers to queries
+        let (indices, _) = domain_input.query_position_to_coset(query_indices[0], fri_parameters.localization_parameters[0] as usize);
+        let answer_input: Vec<_> = indices.iter().map(|&i|evaluations_input[i]).collect();
+
+        let (indices, c) = domain_round_0.query_position_to_coset(query_indices[1], fri_parameters.localization_parameters[1] as usize);
+        let answer_round_0: Vec<_> = indices.iter().map(|&i|evaluations_round_0[i]).collect();
+
+        let (indices, c2) = domain_round_1.query_position_to_coset(query_indices[2], fri_parameters.localization_parameters[2] as usize);
+        let answer_round_1: Vec<_> = indices.iter().map(|&i|evaluations_round_1[i]).collect();
+
+        // sanity check: answer_round_i interpolate version contained in answer_round_i+1
+        assert!(answer_round_1.contains(&c.interpolate(answer_round_0.clone()).evaluate(&alphas[1])));
+        assert!(evaluations_final.contains(&c2.interpolate(answer_round_1.clone()).evaluate(&alphas[2])));
+
+        // verifier verifies consistency
+        let result = FRIVerifier::consistency_check(&fri_parameters, &query_indices,
+                                       &query_cosets,
+                                       &vec![answer_input, answer_round_0, answer_round_1],
+                                       &alphas,
+                                       &domain_final,
+                                       &evaluations_final);
+
+        assert!(result)
+
+
+    }
 }

@@ -16,6 +16,22 @@ pub struct FRIParameters<F: PrimeField> {
     pub localization_parameters: Vec<u64>,
     /// Evaluation domain, which is represented as a coset.
     pub domain: Radix2CosetDomain<F>,
+    /// coset sizes in each round (first round is input coset)
+    log_round_coset_sizes: Vec<usize>
+}
+
+impl<F: PrimeField> FRIParameters<F> {
+    /// Check parameter validity and returns new `FRIParameters`.
+    pub fn new(tested_degree: u64, localization_parameters: Vec<u64>, domain: Radix2CosetDomain<F>) -> Self {
+        assert!(domain.size() >= tested_degree as usize + 1, "Evaluations is not low degree!\
+                Domain size needs to be >= tested_degree + 1");
+        let mut log_round_coset_sizes = Vec::new();
+        log_round_coset_sizes.push(domain.dim());
+        for i in 0..localization_parameters.len(){
+            log_round_coset_sizes.push(log_round_coset_sizes[i] - localization_parameters[i] as usize)
+        }
+        FRIParameters { tested_degree, localization_parameters, domain, log_round_coset_sizes}
+    }
 }
 
 pub struct FRI<F: PrimeField> {
