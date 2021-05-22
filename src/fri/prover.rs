@@ -45,7 +45,7 @@ impl<F: PrimeField> FRIProver<F> {
             cur_coset_offset *= domain.gen();
         }
 
-        let mut c = Radix2CosetDomain::new_radix2_coset(new_evals.len(), domain.offset);
+        let c = Radix2CosetDomain::new_radix2_coset(new_evals.len(), domain.offset);
         // c.base_domain.group_gen = coset_generator;
         // c.base_domain.group_gen_inv = coset_generator.inverse().unwrap();
         debug_assert_eq!(coset_generator.pow(&[new_evals.len() as u64]), F::one());
@@ -71,7 +71,7 @@ pub mod tests{
     use crate::domain::Radix2CosetDomain;
     use crate::direct::DirectLDT;
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::{UVPolynomial, Polynomial};
+    use ark_poly::UVPolynomial;
     use crate::fri::prover::FRIProver;
 
     #[test]

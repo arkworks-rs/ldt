@@ -1,6 +1,6 @@
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::{EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain, UVPolynomial};
+use ark_poly::Polynomial;
 use std::marker::PhantomData;
 use crate::domain::Radix2CosetDomain;
 
@@ -50,7 +50,6 @@ mod tests {
     use ark_r1cs_std::alloc::AllocVar;
     use ark_r1cs_std::fields::fp::FpVar;
     use ark_r1cs_std::poly::evaluations::univariate::EvaluationsVar;
-    use ark_r1cs_std::poly::polynomial::univariate::dense::DensePolynomialVar;
     use ark_r1cs_std::R1CSVar;
     use ark_relations::r1cs::ConstraintSystem;
     use ark_std::test_rng;

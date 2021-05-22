@@ -1,5 +1,5 @@
 use ark_ff::PrimeField;
-use ark_poly::{Radix2EvaluationDomain, EvaluationDomain, UVPolynomial, Evaluations, Polynomial};
+use ark_poly::{EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain, UVPolynomial};
 use ark_poly::polynomial::univariate::DensePolynomial;
 
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
@@ -122,12 +122,12 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
 
 #[cfg(test)]
 mod tests{
+    use ark_poly::{Polynomial, UVPolynomial};
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::{UVPolynomial, Polynomial, Radix2EvaluationDomain, EvaluationDomain};
     use ark_std::{test_rng, UniformRand};
-    use crate::domain::Radix2CosetDomain;
     use ark_test_curves::bls12_381::Fr;
-    use ark_ff::{Field, One};
+
+    use crate::domain::Radix2CosetDomain;
 
     #[test]
     fn query_coset_test(){
