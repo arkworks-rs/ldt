@@ -1,5 +1,5 @@
 use crate::domain::Radix2CosetDomain;
-use ark_ff::{PrimeField, batch_inversion_and_mul};
+use ark_ff::{batch_inversion_and_mul, PrimeField};
 use ark_r1cs_std::poly::evaluations::univariate::lagrange_interpolator::LagrangeInterpolator;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
@@ -15,7 +15,7 @@ impl<F: PrimeField> FRIProver<F> {
     /// The prover is inefficient. TODO: Adapt code from libiop.
     ///
     /// Returns domain for next round polynomial and evaluations over the domain.
-    pub fn interactive_phase_single_round(
+    pub fn interactive_phase_single_round_naive(
         domain: Radix2CosetDomain<F>,
         poly_over_domain: Vec<F>,
         localization_param: u64,
@@ -58,23 +58,22 @@ impl<F: PrimeField> FRIProver<F> {
     }
 
     /// Single round prover in commit phase. Returns the polynomial for next round
-/// represented by evaluations over domain in next round.
-///
-/// The prover is inefficient. TODO: Adapt code from libiop.
-///
-/// Returns domain for next round polynomial and evaluations over the domain.
-    pub fn interactive_phase_single_round_efficient(
+    /// represented by evaluations over domain in next round.
+    ///
+    /// Returns domain for next round polynomial and evaluations over the domain.
+    pub fn interactive_phase_single_round(
         domain: Radix2CosetDomain<F>,
         evals_over_domain: Vec<F>,
         localization_param: u64,
         alpha: F,
     ) -> (Radix2CosetDomain<F>, Vec<F>) {
         let coset_size = 1 << localization_param;
-        let num_cosets = domain.size() /  coset_size;
+        let num_cosets = domain.size() / coset_size;
         let mut next_f_i = Vec::with_capacity(num_cosets); // new_evals
 
         let h_inc = domain.gen();
-        let h_inc_to_coset_inv_plus_one = h_inc.pow(&[coset_size as u64]).inverse().unwrap() * h_inc;
+        let h_inc_to_coset_inv_plus_one =
+            h_inc.pow(&[coset_size as u64]).inverse().unwrap() * h_inc;
 
         let shiftless_coset = Radix2CosetDomain::new_radix2_coset(coset_size, F::one());
         let g = shiftless_coset.gen();
@@ -84,12 +83,13 @@ impl<F: PrimeField> FRIProver<F> {
         // x * g^{-k}
         let mut shifted_x_elements = Vec::with_capacity(coset_size);
         shifted_x_elements.push(alpha);
-        for i in 1..coset_size{
-            shifted_x_elements.push(shifted_x_elements[i-1] * g_inv);
+        for i in 1..coset_size {
+            shifted_x_elements.push(shifted_x_elements[i - 1] * g_inv);
         }
 
         let mut cur_h = domain.offset;
-        let first_h_to_coset_inv_plus_one = cur_h.pow(&[coset_size as u64]).inverse().unwrap() * cur_h;
+        let first_h_to_coset_inv_plus_one =
+            cur_h.pow(&[coset_size as u64]).inverse().unwrap() * cur_h;
         let mut cur_coset_constant_plus_h = x_to_order_coset * first_h_to_coset_inv_plus_one;
 
         /* x * g^{-k} - h, for all combinations of k, h.  */
@@ -105,53 +105,53 @@ impl<F: PrimeField> FRIProver<F> {
         let mut x_index_in_domain = 0;
 
         /* First we create all the constants for each coset,
-           and the entire vector of elements to invert, xg^{-k} - h.
-         */
+          and the entire vector of elements to invert, xg^{-k} - h.
+        */
 
-        for j in 0..num_cosets{
+        for j in 0..num_cosets {
             /* coset constant = x^|coset| * h^{1 - |coset|} - h */
             let coset_constant: F = cur_coset_constant_plus_h - cur_h;
             constant_for_each_coset.push(coset_constant);
             /* coset_constant = vp_coset(x) * h^{-|coset| + 1},
-              since h is non-zero, coset_constant is zero iff vp_coset(x) is zero.
-              If vp_coset(x) is zero, then x is in the coset. */
+            since h is non-zero, coset_constant is zero iff vp_coset(x) is zero.
+            If vp_coset(x) is zero, then x is in the coset. */
             let x_in_coset = coset_constant.is_zero();
             /* if x is in the coset, we mark which position x is within f_i_domain,
-               and we pad elements to invert to simplify inversion later. */
+            and we pad elements to invert to simplify inversion later. */
             if x_in_coset {
                 x_ever_in_domain = true;
                 x_coset_index = j;
                 // find which element in the coset x belongs to.
                 // also pad elements_to_invert to simplify indexing
                 let mut cur_elem = cur_h;
-                for k in 0..coset_size{
-                    if cur_elem == alpha
-                    {
+                for k in 0..coset_size {
+                    if cur_elem == alpha {
                         x_index_in_domain = k * num_cosets + j;
                     }
                     cur_elem *= g;
                     elements_to_invert.push(F::one());
                 }
-                continue
+                continue;
             }
 
             /* Append all elements to invert, (xg^{-k} - h) */
-            for k in 0..coset_size{
+            for k in 0..coset_size {
                 elements_to_invert.push(shifted_x_elements[k] - cur_h);
             }
 
             cur_h *= h_inc;
             /* coset constant = x^|coset| * h^{1 - |coset|} - h
-               So we can efficiently increment x^|coset| * h^{1 - |coset|} */
+            So we can efficiently increment x^|coset| * h^{1 - |coset|} */
             cur_coset_constant_plus_h *= h_inc_to_coset_inv_plus_one;
         }
         /* Technically not lagrange coefficients, its missing the constant for each coset */
         batch_inversion_and_mul(&mut elements_to_invert, &constant_for_all_cosets);
         let lagrange_coefficients = elements_to_invert;
-        for j in 0..num_cosets{
+        for j in 0..num_cosets {
             let mut interpolation = F::zero();
-            for k in 0..coset_size{
-                interpolation += evals_over_domain[k * num_cosets + j] * lagrange_coefficients[j * coset_size + k];
+            for k in 0..coset_size {
+                interpolation += evals_over_domain[k * num_cosets + j]
+                    * lagrange_coefficients[j * coset_size + k];
             }
             /* Multiply the constant for each coset, to get the correct interpolation */
             interpolation *= constant_for_each_coset[j];
@@ -159,7 +159,7 @@ impl<F: PrimeField> FRIProver<F> {
         }
 
         /* if x ever in domain, correct that evaluation. */
-        if x_ever_in_domain{
+        if x_ever_in_domain {
             next_f_i[x_coset_index] = evals_over_domain[x_index_in_domain];
         }
 
@@ -204,21 +204,24 @@ pub mod tests {
         // fri prover should reduce its degree
         let alpha = Fr::rand(&mut rng);
         let localization = 2;
-        let (expected_domain_next_round, expected_eval_next_round) = FRIProver::interactive_phase_single_round(
-            domain_coset,
-            evaluations.to_vec(),
-            localization,
-            alpha,
-        );
+        let (expected_domain_next_round, expected_eval_next_round) =
+            FRIProver::interactive_phase_single_round_naive(
+                domain_coset,
+                evaluations.to_vec(),
+                localization,
+                alpha,
+            );
 
-        let (actual_domain_next_round, actual_eval_next_round) = FRIProver::interactive_phase_single_round_efficient(
-            domain_coset,
-            evaluations.to_vec(),
-            localization, alpha);
+        let (actual_domain_next_round, actual_eval_next_round) =
+            FRIProver::interactive_phase_single_round(
+                domain_coset,
+                evaluations.to_vec(),
+                localization,
+                alpha,
+            );
 
         assert_eq!(actual_domain_next_round, expected_domain_next_round);
         assert_eq!(actual_eval_next_round, expected_eval_next_round);
-
     }
 
     #[test]
