@@ -2,15 +2,15 @@ use crate::domain::Radix2CosetDomain;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
+/// R1CS constraints for FRI Verifier.
+#[cfg(feature = "r1cs")]
+pub mod constraints;
 /// Prover used by FRI protocol.
 pub mod prover;
 #[cfg(test)]
 mod test;
 /// Verifier used by FRI protocol.
 pub mod verifier;
-/// R1CS constraints for FRI Verifier.
-#[cfg(feature = "r1cs")]
-pub mod constraints;
 
 /// Some parameters used by FRI verifiers.
 pub struct FRIParameters<F: PrimeField> {
