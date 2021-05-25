@@ -1,3 +1,7 @@
+/// R1CS constraints for DirectLDT
+#[cfg(feature = "r1cs")]
+pub mod constraints;
+
 use crate::domain::Radix2CosetDomain;
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;

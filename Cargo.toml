@@ -20,3 +20,4 @@ ark-test-curves = { version = "^0.2.0", default-features = false, features = ["b
 [features]
 default = ["std"]
 std = ["ark-ff/std", "ark-std/std", "ark-relations/std", "ark-r1cs-std/std", "ark-sponge/std", "ark-poly/std"]
+r1cs = ["ark-sponge/r1cs"]

@@ -8,6 +8,9 @@ pub mod prover;
 mod test;
 /// Verifier used by FRI protocol.
 pub mod verifier;
+/// R1CS constraints for FRI Verifier.
+#[cfg(feature = "r1cs")]
+pub mod constraints;
 
 /// Some parameters used by FRI verifiers.
 pub struct FRIParameters<F: PrimeField> {
