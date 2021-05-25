@@ -4,6 +4,7 @@ use ark_poly::univariate::DensePolynomial;
 use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
+/// Direct LDT by interpolating evaluations and truncating coefficients to low degree.
 pub struct DirectLDT<F: PrimeField> {
     marker: PhantomData<F>,
 }

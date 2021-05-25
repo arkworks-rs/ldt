@@ -17,7 +17,8 @@
 )]
 #![forbid(unsafe_code)]
 
-mod direct;
+/// Direct low-degree tests
+pub mod direct;
 
 /// Domain represented as coset.
 pub mod domain;

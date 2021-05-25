@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use crate::domain::Radix2CosetDomain;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;

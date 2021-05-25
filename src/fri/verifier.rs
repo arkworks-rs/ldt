@@ -2,9 +2,9 @@ use ark_std::marker::PhantomData;
 
 use crate::direct::DirectLDT;
 use crate::domain::Radix2CosetDomain;
-use crate::fri::prover::FRIProver;
 use crate::fri::FRIParameters;
 use ark_ff::PrimeField;
+use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::Polynomial;
 use ark_sponge::FieldBasedCryptographicSponge;
 use ark_std::vec::Vec;
@@ -41,11 +41,11 @@ impl<F: PrimeField> FRIVerifier<F> {
     /// Final polynomial is not queried. Instead, verifier will get
     /// the whole final polynomial in evaluation form, and do direct LDT.
     ///
-    /// Returns the all query domains, and query coset index
+    /// Returns the all query domains, and query coset index, final polynomial domain
     pub fn prepare_queries(
         rand_coset_index: usize,
         fri_parameters: &FRIParameters<F>,
-    ) -> (Vec<Radix2CosetDomain<F>>, Vec<usize>) {
+    ) -> (Vec<Radix2CosetDomain<F>>, Vec<usize>, Radix2CosetDomain<F>) {
         let num_fri_rounds = fri_parameters.localization_parameters.len();
         let mut coset_indices = Vec::new();
         // this does not include domain.offset! multiply domain.offset in use
@@ -73,13 +73,11 @@ impl<F: PrimeField> FRIVerifier<F> {
 
             // get next round coset size, and next round domain
             curr_domain_coset_size = dist_between_coset_elems;
-            curr_round_domain = FRIProver::fold_domain(
-                curr_round_domain,
-                fri_parameters.localization_parameters[i],
-            );
+            curr_round_domain =
+                Self::fold_domain(curr_round_domain, fri_parameters.localization_parameters[i]);
         }
 
-        (queries, coset_indices)
+        (queries, coset_indices, curr_round_domain)
     }
 
     /// ## Step 3: Query Phase (Check query)
@@ -96,7 +94,7 @@ impl<F: PrimeField> FRIVerifier<F> {
         queried_evaluations: &[Vec<F>],
         alphas: &[F],
         final_polynomial_domain: &Radix2CosetDomain<F>,
-        final_polynomial: &[F],
+        final_polynomial: &DensePolynomial<F>,
     ) -> bool {
         let mut expected_next_round_eval = F::zero();
 
@@ -132,15 +130,14 @@ impl<F: PrimeField> FRIVerifier<F> {
 
         let final_element_index = *queried_coset_indices.last().unwrap();
 
-        let final_ldt = DirectLDT::generate_low_degree_coefficients(
-            final_polynomial_domain.clone(),
-            final_polynomial.to_vec(),
-            final_poly_degree_bound as usize,
+        assert!(
+            final_polynomial.degree() <= final_poly_degree_bound as usize,
+            "final polynomial degree is too large!"
         );
         DirectLDT::verify_low_degree_single_round(
             final_polynomial_domain.element(final_element_index),
             expected_next_round_eval,
-            &final_ldt,
+            &final_polynomial,
         )
     }
 
@@ -155,6 +152,18 @@ impl<F: PrimeField> FRIVerifier<F> {
     ) -> F {
         let poly = coset.interpolate(queried_evaluations);
         poly.evaluate(&alpha)
+    }
+
+    /// Returns the domain of the polynomial sent from prover at round `i` given the domain in round `i-1`
+    /// without supplying evaluations over domain.
+    pub fn fold_domain(
+        domain: Radix2CosetDomain<F>,
+        localization_param: u64,
+    ) -> Radix2CosetDomain<F> {
+        let coset_size = 1 << localization_param;
+        let domain_size = domain.base_domain.size;
+        let dist_between_coset_elems = domain_size / coset_size;
+        Radix2CosetDomain::new_radix2_coset(dist_between_coset_elems as usize, domain.offset)
     }
 }
 
@@ -175,6 +184,7 @@ mod tests {
     use ark_std::test_rng;
     use ark_test_curves::bls12_381::Fr;
 
+    use crate::direct::DirectLDT;
     use crate::domain::Radix2CosetDomain;
     use crate::fri::prover::FRIProver;
     use crate::fri::verifier::FRIVerifier;
@@ -208,7 +218,7 @@ mod tests {
             alphas[1],
         );
 
-        let (domain_final, evaluations_final) = FRIProver::interactive_phase_single_round(
+        let (expected_domain_final, evaluations_final) = FRIProver::interactive_phase_single_round(
             domain_round_1,
             evaluations_round_1.clone(),
             fri_parameters.localization_parameters[2],
@@ -217,9 +227,10 @@ mod tests {
 
         // verifier prepare queries
         let rand_coset_index = 31;
-        let (query_cosets, query_indices) =
+        let (query_cosets, query_indices, domain_final) =
             FRIVerifier::prepare_queries(rand_coset_index, &fri_parameters);
         assert_eq!(query_indices.len(), 3);
+        assert_eq!(domain_final, expected_domain_final);
 
         // prover generate answers to queries
         let (indices, qi) = domain_input.query_position_to_coset(
@@ -251,6 +262,14 @@ mod tests {
         assert!(evaluations_final
             .contains(&q1.interpolate(answer_round_1.clone()).evaluate(&alphas[2])));
 
+        let total_shrink_factor: u64 = fri_parameters.localization_parameters.iter().sum();
+        let final_poly_degree_bound = fri_parameters.tested_degree >> total_shrink_factor;
+        let final_polynomial = DirectLDT::generate_low_degree_coefficients(
+            domain_final,
+            evaluations_final,
+            final_poly_degree_bound as usize,
+        );
+
         // verifier verifies consistency
         let result = FRIVerifier::consistency_check(
             &fri_parameters,
@@ -259,7 +278,7 @@ mod tests {
             &vec![answer_input, answer_round_0, answer_round_1],
             &alphas,
             &domain_final,
-            &evaluations_final,
+            &final_polynomial,
         );
 
         assert!(result)

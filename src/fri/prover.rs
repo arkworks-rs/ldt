@@ -168,18 +168,6 @@ impl<F: PrimeField> FRIProver<F> {
 
         (c, next_f_i)
     }
-
-    /// Returns the domain returned by `interactive_phase_single_round` without supplying evaluations
-    /// over domain. This method is useful for verifiers.
-    pub fn fold_domain(
-        domain: Radix2CosetDomain<F>,
-        localization_param: u64,
-    ) -> Radix2CosetDomain<F> {
-        let coset_size = 1 << localization_param;
-        let domain_size = domain.base_domain.size;
-        let dist_between_coset_elems = domain_size / coset_size;
-        Radix2CosetDomain::new_radix2_coset(dist_between_coset_elems as usize, domain.offset)
-    }
 }
 
 #[cfg(test)]
@@ -187,6 +175,7 @@ pub mod tests {
     use crate::direct::DirectLDT;
     use crate::domain::Radix2CosetDomain;
     use crate::fri::prover::FRIProver;
+    use crate::fri::verifier::FRIVerifier;
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::UVPolynomial;
     use ark_std::{test_rng, UniformRand};
@@ -259,7 +248,7 @@ pub mod tests {
         ));
 
         // test `fold_domain`
-        let fold_domain = FRIProver::fold_domain(domain_coset.clone(), localization);
+        let fold_domain = FRIVerifier::fold_domain(domain_coset.clone(), localization);
         assert_eq!(fold_domain, domain_next_round);
     }
 }
