@@ -36,13 +36,46 @@ impl<F: PrimeField> FRIVerifier<F> {
     }
 
     /// ## Step 2: Query Phase (Prepare Query)
-    /// Prepare all the queries in query phase. The returned value `queries[i]` is the coset query
+    /// Prepare all queries given the sampled random coset indices.
+    ///
+    /// The first returned value `queries[i][j]` is the coset query
+    /// of the `j`th round polynomial (including input polynomial but does not include final polynomial) for `i`th query.
+    ///
+    /// The second returned value `indices[i][j]` is the coset index
+    /// of the `j`th round polynomial (including input polynomial but does not include final polynomial) for `i`th query.
+    ///
+    /// The last returned value `final[i]` is the final polynomial domain at round `i`.
+    pub fn batch_prepare_queries(
+        rand_coset_indices: &[usize],
+        fri_parameters: &FRIParameters<F>,
+    ) -> (
+        Vec<Vec<Radix2CosetDomain<F>>>,
+        Vec<Vec<usize>>,
+        Vec<Radix2CosetDomain<F>>,
+    ) {
+        let mut queries = Vec::with_capacity(rand_coset_indices.len());
+        let mut indices = Vec::with_capacity(rand_coset_indices.len());
+        let mut finals = Vec::with_capacity(rand_coset_indices.len());
+
+        rand_coset_indices
+            .iter()
+            .map(|&i| Self::prepare_one_query(i, fri_parameters))
+            .for_each(|(query, index, fp)| {
+                queries.push(query);
+                indices.push(index);
+                finals.push(fp);
+            });
+
+        (queries, indices, finals)
+    }
+
+    /// Prepare one queries given the random coset index. The returned value `queries[i]` is the coset query
     /// of the `ith` round polynomial (including codeword polynomial but does not include final polynomial).
     /// Final polynomial is not queried. Instead, verifier will get
     /// the whole final polynomial in evaluation form, and do direct LDT.
     ///
     /// Returns the all query domains, and query coset index, final polynomial domain
-    pub fn prepare_queries(
+    pub fn prepare_one_query(
         rand_coset_index: usize,
         fri_parameters: &FRIParameters<F>,
     ) -> (Vec<Radix2CosetDomain<F>>, Vec<usize>, Radix2CosetDomain<F>) {
@@ -80,14 +113,40 @@ impl<F: PrimeField> FRIVerifier<F> {
         (queries, coset_indices, curr_round_domain)
     }
 
-    /// ## Step 3: Query Phase (Check query)
+    pub fn batch_consistency_check_for_all_queries(
+        fri_parameters: &FRIParameters<F>,
+        all_queried_coset_indices: &[Vec<usize>],
+        all_queries_domains: &[Vec<Radix2CosetDomain<F>>],
+        all_queried_evaluations: &[Vec<Vec<F>>],
+        alphas: &[F],
+        all_final_polynomial_domain: &[Radix2CosetDomain<F>],
+        all_final_polynomials: &[DensePolynomial<F>],
+    ) -> bool {
+        for i in 0..all_queried_coset_indices.len() {
+            let result = Self::consistency_check_for_query(
+                fri_parameters,
+                &all_queried_coset_indices[i],
+                &all_queries_domains[i],
+                &all_queried_evaluations[i],
+                alphas,
+                &all_final_polynomial_domain[i],
+                &all_final_polynomials[i],
+            );
+            if !result {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// ## Step 3: Decision Phase (Check query)
     /// After preparing the query, verifier get the evaluations of corresponding query. Those evaluations needs
     /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
     /// is consistent with each other, and the final polynomial is low-degree.
     ///
     /// `queries[i]` is the coset query of the `ith` round polynomial, including the codeword polynomial.
     /// `queried_evaluations` stores the result of corresponding query.
-    pub fn consistency_check(
+    pub fn consistency_check_for_query(
         fri_parameters: &FRIParameters<F>,
         queried_coset_indices: &[usize],
         queries: &[Radix2CosetDomain<F>],
@@ -228,7 +287,7 @@ mod tests {
         // verifier prepare queries
         let rand_coset_index = 31;
         let (query_cosets, query_indices, domain_final) =
-            FRIVerifier::prepare_queries(rand_coset_index, &fri_parameters);
+            FRIVerifier::prepare_one_query(rand_coset_index, &fri_parameters);
         assert_eq!(query_indices.len(), 3);
         assert_eq!(domain_final, expected_domain_final);
 
@@ -271,7 +330,7 @@ mod tests {
         );
 
         // verifier verifies consistency
-        let result = FRIVerifier::consistency_check(
+        let result = FRIVerifier::consistency_check_for_query(
             &fri_parameters,
             &query_indices,
             &query_cosets,
