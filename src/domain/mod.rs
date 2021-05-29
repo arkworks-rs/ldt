@@ -31,7 +31,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
     /// and the result coset represented as domain.
     pub fn query_position_to_coset(
         &self,
-        coset_position: usize,
+        query_position: usize,
         log_coset_size: usize,
     ) -> (Vec<usize>, Self) {
         // make sure coset position is not out of range
@@ -40,7 +40,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
             "query coset size too large"
         );
         assert!(
-            coset_position < (1 << (self.base_domain.log_size_of_group - log_coset_size as u32)),
+            query_position < (1 << (self.base_domain.log_size_of_group - log_coset_size as u32)),
             "coset position out of range"
         );
 
@@ -50,7 +50,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
         // generate coset
         let mut c = Self::new_radix2_coset(
             1 << log_coset_size,
-            self.offset * self.gen().pow(&[coset_position as u64]),
+            self.offset * self.gen().pow(&[query_position as u64]),
         );
         c.base_domain.group_gen = self.gen().pow(&[1 << (self.dim() - log_coset_size)]);
         c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap();
@@ -58,7 +58,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
         // generate positions
         let mut indices = Vec::with_capacity(1 << log_coset_size);
         for i in 0..(1 << log_coset_size) {
-            indices.push(coset_position + i * dist_between_coset_elems)
+            indices.push(query_position + i * dist_between_coset_elems)
         }
 
         (indices, c)
