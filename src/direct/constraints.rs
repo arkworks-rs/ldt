@@ -16,12 +16,19 @@ impl<CF: PrimeField> DirectLDTGadget<CF> {
     /// Verifier sample one element from domain and get its evaluation. Check if that evaluation
     /// agrees with low-degree polynomial. Assume that `DensePolynomial` is low-degree, and verifier
     /// need to check that.
-    #[tracing::instrument(target = "r1cs", skip(self, other))]
+    #[tracing::instrument(target = "r1cs", skip(other))]
     pub fn verify_low_degree_single_round(
         sampled_domain_element: FpVar<CF>,
         sampled_evaluation_element: FpVar<CF>,
         coefficients: &DensePolynomialVar<CF>,
+        degree_bound: usize,
     ) -> Result<Boolean<CF>, SynthesisError> {
+        // make sure the degree is within degree_bound. No need to include degree_bound check
+        // in constraints because the verifier can just verify the size of circuit.
+        assert!(
+            coefficients.coeffs.len() <= degree_bound,
+            "polynomial degree out of bound"
+        );
         coefficients
             .evaluate(&sampled_domain_element)?
             .is_eq(&sampled_evaluation_element)

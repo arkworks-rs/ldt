@@ -28,7 +28,7 @@ impl<F: PrimeField> DirectLDT<F> {
         degree_bound: usize,
     ) -> DensePolynomial<F> {
         let mut poly = domain.interpolate(evaluations);
-        // trim higher degree
+        // trim higher degree: if poly is higher degree, then the soundness should fail
         poly.coeffs.truncate(degree_bound + 1);
         poly
     }
