@@ -135,6 +135,15 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
     pub fn element(&self, i: usize) -> F {
         self.base_domain.element(i) * self.offset
     }
+
+    /// Shrink the domain size such that new domain size = `self.size() / (1 << log_shrink_factor)`
+    /// and has same offset.
+    pub fn fold(&self, log_shrink_factor: u64) -> Radix2CosetDomain<F> {
+        let coset_size = 1 << log_shrink_factor;
+        let domain_size = self.base_domain.size;
+        let dist_between_coset_elems = domain_size / coset_size;
+        Radix2CosetDomain::new_radix2_coset(dist_between_coset_elems as usize, self.offset)
+    }
 }
 
 #[cfg(test)]

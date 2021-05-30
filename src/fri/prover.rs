@@ -61,6 +61,7 @@ impl<F: PrimeField> FRIProver<F> {
     /// represented by evaluations over domain in next round.
     ///
     /// Returns domain for next round polynomial and evaluations over the domain.
+    /// TODO: fold_domain
     pub fn interactive_phase_single_round(
         domain: Radix2CosetDomain<F>,
         evals_over_domain: Vec<F>,
@@ -164,7 +165,7 @@ impl<F: PrimeField> FRIProver<F> {
         }
 
         // domain definition
-        let c = Radix2CosetDomain::new_radix2_coset(next_f_i.len(), domain.offset);
+        let c = domain.fold(localization_param);
 
         (c, next_f_i)
     }
@@ -175,7 +176,6 @@ pub mod tests {
     use crate::direct::DirectLDT;
     use crate::domain::Radix2CosetDomain;
     use crate::fri::prover::FRIProver;
-    use crate::fri::verifier::FRIVerifier;
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::UVPolynomial;
     use ark_std::{test_rng, UniformRand};
@@ -248,7 +248,7 @@ pub mod tests {
         ));
 
         // test `fold_domain`
-        let fold_domain = FRIVerifier::fold_domain(domain_coset.clone(), localization);
+        let fold_domain = domain_coset.fold(localization);
         assert_eq!(fold_domain, domain_next_round);
     }
 }

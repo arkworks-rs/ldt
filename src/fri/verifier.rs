@@ -106,13 +106,13 @@ impl<F: PrimeField> FRIVerifier<F> {
 
             // get next round coset size, and next round domain
             curr_domain_coset_size = dist_between_coset_elems;
-            curr_round_domain =
-                Self::fold_domain(curr_round_domain, fri_parameters.localization_parameters[i]);
+            curr_round_domain = curr_round_domain.fold(fri_parameters.localization_parameters[i]);
         }
 
         (queries, coset_indices, curr_round_domain)
     }
 
+    /// TODO: add doc
     pub fn batch_consistency_check_for_all_queries(
         fri_parameters: &FRIParameters<F>,
         all_queried_coset_indices: &[Vec<usize>],
@@ -211,18 +211,6 @@ impl<F: PrimeField> FRIVerifier<F> {
     ) -> F {
         let poly = coset.interpolate(queried_evaluations);
         poly.evaluate(&alpha)
-    }
-
-    /// Returns the domain of the polynomial sent from prover at round `i` given the domain in round `i-1`
-    /// without supplying evaluations over domain.
-    pub fn fold_domain(
-        domain: Radix2CosetDomain<F>,
-        localization_param: u64,
-    ) -> Radix2CosetDomain<F> {
-        let coset_size = 1 << localization_param;
-        let domain_size = domain.base_domain.size;
-        let dist_between_coset_elems = domain_size / coset_size;
-        Radix2CosetDomain::new_radix2_coset(dist_between_coset_elems as usize, domain.offset)
     }
 }
 
