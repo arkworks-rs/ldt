@@ -112,7 +112,17 @@ impl<F: PrimeField> FRIVerifier<F> {
         (queries, coset_indices, curr_round_domain)
     }
 
-    /// TODO: add doc
+    /// ## Step 3: Decision Phase (Check query)
+    /// After preparing all queries, verifier gets the evaluations of corresponding query. Those evaluations needs
+    /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
+    /// is consistent with each other, and the final polynomial is low-degree.
+    ///
+    /// * `all_queried_coset_indices[i][j]` is the `j`th round query coset index of `i`th query
+    /// * `all_queries_domains[i][j]` is the `j`th round query coset of `i`th query
+    /// * `all_queried_evaluations[i][j]` is a vector storing corresponding evaluations at `all_queries_domains[i][j]`
+    /// * `alphas[i]` is the randomness used by the polynomial
+    /// * `all_final_polynomial_domain[i]` is the final polynomial domain for `i`th query
+    /// * `all_final_polynomials` is the final polynomial for `i`th query
     pub fn batch_consistency_check_for_all_queries(
         fri_parameters: &FRIParameters<F>,
         all_queried_coset_indices: &[Vec<usize>],
