@@ -48,12 +48,12 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
             1 << (self.base_domain.log_size_of_group as usize - log_coset_size);
 
         // generate coset
-        let mut c = Self::new_radix2_coset(
+        let c = Self::new_radix2_coset(
             1 << log_coset_size,
             self.offset * self.gen().pow(&[query_position as u64]),
         );
-        c.base_domain.group_gen = self.gen().pow(&[1 << (self.dim() - log_coset_size)]);
-        c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap();
+        // c.base_domain.group_gen = self.gen().pow(&[1 << (self.dim() - log_coset_size)]);
+        // c.base_domain.group_gen_inv = c.base_domain.group_gen.inverse().unwrap(); // not necessary
 
         // generate positions
         let mut indices = Vec::with_capacity(1 << log_coset_size);

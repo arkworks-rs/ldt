@@ -7,7 +7,7 @@ use ark_relations::r1cs::SynthesisError;
 use ark_std::marker::PhantomData;
 
 pub struct DirectLDTGadget<CF: PrimeField> {
-    _marker: PhantomData<F>,
+    _marker: PhantomData<CF>,
 }
 
 impl<CF: PrimeField> DirectLDTGadget<CF> {
@@ -16,7 +16,6 @@ impl<CF: PrimeField> DirectLDTGadget<CF> {
     /// Verifier sample one element from domain and get its evaluation. Check if that evaluation
     /// agrees with low-degree polynomial. Assume that `DensePolynomial` is low-degree, and verifier
     /// need to check that.
-    #[tracing::instrument(target = "r1cs", skip(other))]
     pub fn verify_low_degree_single_round(
         sampled_domain_element: FpVar<CF>,
         sampled_evaluation_element: FpVar<CF>,

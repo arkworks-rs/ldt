@@ -54,6 +54,7 @@ mod tests {
     use ark_poly::{EvaluationDomain, Polynomial, Radix2EvaluationDomain, UVPolynomial};
     use ark_r1cs_std::alloc::AllocVar;
     use ark_r1cs_std::fields::fp::FpVar;
+    use ark_r1cs_std::fields::FieldVar;
     use ark_r1cs_std::poly::evaluations::univariate::EvaluationsVar;
     use ark_r1cs_std::R1CSVar;
     use ark_relations::r1cs::ConstraintSystem;
@@ -88,9 +89,9 @@ mod tests {
             .iter()
             .map(|x| FpVar::new_witness(ark_relations::ns!(cs, "eval_var"), || Ok(*x)).unwrap())
             .collect();
-        let r1cs_coset = ark_r1cs_std::poly::domain::Radix2Domain {
+        let r1cs_coset = ark_r1cs_std::poly::domain::Radix2DomainVar {
             gen: base_domain.group_gen,
-            offset,
+            offset: FpVar::constant(offset),
             dim: ark_std::log2(degree.next_power_of_two()) as u64,
         };
         let eval_var = EvaluationsVar::from_vec_and_domain(eval_var, r1cs_coset, true);

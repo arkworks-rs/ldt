@@ -29,10 +29,52 @@ impl<F: PrimeField> FRIVerifier<F> {
         sponge: &mut S,
         fri_parameters: &FRIParameters<F>,
     ) -> usize {
-        let log_num_cosets = fri_parameters.domain.dim();
+        let log_num_cosets =
+            fri_parameters.domain.dim() - fri_parameters.localization_parameters[0] as usize;
         // we use the fact that number of cosets is always power of two
         let rand_coset_index = le_bits_array_to_usize(&sponge.squeeze_bits(log_num_cosets));
         rand_coset_index
+    }
+
+    /// ## Step 2: Query Phase (Prepare Query)
+    /// Prepare one query given the random coset index. The returned value `queries[i]` is the coset query
+    /// of the `ith` round polynomial (including codeword polynomial but does not include final polynomial).
+    /// Final polynomial is not queried. Instead, verifier will get
+    /// the whole final polynomial in evaluation form, and do direct LDT.
+    ///
+    /// Returns the all query domains, and query coset index, final polynomial domain
+    pub fn prepare_query(
+        rand_coset_index: usize,
+        fri_parameters: &FRIParameters<F>,
+    ) -> (Vec<Radix2CosetDomain<F>>, Vec<usize>, Radix2CosetDomain<F>) {
+        let num_fri_rounds = fri_parameters.localization_parameters.len();
+        let mut coset_indices = Vec::new();
+        let mut curr_coset_index = rand_coset_index;
+        let mut queries = Vec::with_capacity(num_fri_rounds);
+        let mut curr_round_domain = fri_parameters.domain;
+        // sample a coset index
+        for i in 0..num_fri_rounds {
+            // current coset index = last coset index % (distance between coset at current round)
+            // edge case: at first round, this still applies
+
+            let dist_between_coset_elems =
+                curr_round_domain.size() / (1 << fri_parameters.localization_parameters[i]);
+            curr_coset_index = curr_coset_index % dist_between_coset_elems;
+
+            coset_indices.push(curr_coset_index);
+
+            let (_, query_coset) = curr_round_domain.query_position_to_coset(
+                curr_coset_index,
+                fri_parameters.localization_parameters[i] as usize,
+            );
+
+            queries.push(query_coset);
+
+            // get next round coset size, and next round domain
+            curr_round_domain = curr_round_domain.fold(fri_parameters.localization_parameters[i]);
+        }
+
+        (queries, coset_indices, curr_round_domain)
     }
 
     /// ## Step 2: Query Phase (Prepare Query)
@@ -59,7 +101,7 @@ impl<F: PrimeField> FRIVerifier<F> {
 
         rand_coset_indices
             .iter()
-            .map(|&i| Self::prepare_one_query(i, fri_parameters))
+            .map(|&i| Self::prepare_query(i, fri_parameters))
             .for_each(|(query, index, fp)| {
                 queries.push(query);
                 indices.push(index);
@@ -69,86 +111,6 @@ impl<F: PrimeField> FRIVerifier<F> {
         (queries, indices, finals)
     }
 
-    /// Prepare one queries given the random coset index. The returned value `queries[i]` is the coset query
-    /// of the `ith` round polynomial (including codeword polynomial but does not include final polynomial).
-    /// Final polynomial is not queried. Instead, verifier will get
-    /// the whole final polynomial in evaluation form, and do direct LDT.
-    ///
-    /// Returns the all query domains, and query coset index, final polynomial domain
-    pub fn prepare_one_query(
-        rand_coset_index: usize,
-        fri_parameters: &FRIParameters<F>,
-    ) -> (Vec<Radix2CosetDomain<F>>, Vec<usize>, Radix2CosetDomain<F>) {
-        let num_fri_rounds = fri_parameters.localization_parameters.len();
-        let mut coset_indices = Vec::new();
-        // this does not include domain.offset! multiply domain.offset in use
-        let mut curr_coset_index = rand_coset_index;
-        let mut queries = Vec::with_capacity(num_fri_rounds);
-        let mut curr_domain_coset_size = fri_parameters.domain.size();
-        let mut curr_round_domain = fri_parameters.domain;
-        // sample a coset index
-        for i in 0..num_fri_rounds {
-            // current coset index = last coset index % (distance between coset at current round)
-            // edge case: at first round, this still applies
-
-            let dist_between_coset_elems =
-                curr_domain_coset_size / (1 << fri_parameters.localization_parameters[i]);
-            curr_coset_index = curr_coset_index % dist_between_coset_elems;
-
-            coset_indices.push(curr_coset_index);
-
-            let (_, query_coset) = curr_round_domain.query_position_to_coset(
-                curr_coset_index,
-                fri_parameters.localization_parameters[i] as usize,
-            );
-
-            queries.push(query_coset);
-
-            // get next round coset size, and next round domain
-            curr_domain_coset_size = dist_between_coset_elems;
-            curr_round_domain = curr_round_domain.fold(fri_parameters.localization_parameters[i]);
-        }
-
-        (queries, coset_indices, curr_round_domain)
-    }
-
-    /// ## Step 3: Decision Phase (Check query)
-    /// After preparing all queries, verifier gets the evaluations of corresponding query. Those evaluations needs
-    /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
-    /// is consistent with each other, and the final polynomial is low-degree.
-    ///
-    /// * `all_queried_coset_indices[i][j]` is the `j`th round query coset index of `i`th query
-    /// * `all_queries_domains[i][j]` is the `j`th round query coset of `i`th query
-    /// * `all_queried_evaluations[i][j]` is a vector storing corresponding evaluations at `all_queries_domains[i][j]`
-    /// * `alphas[i]` is the randomness used by the polynomial
-    /// * `all_final_polynomial_domain[i]` is the final polynomial domain for `i`th query
-    /// * `all_final_polynomials` is the final polynomial for `i`th query
-    pub fn batch_consistency_check_for_all_queries(
-        fri_parameters: &FRIParameters<F>,
-        all_queried_coset_indices: &[Vec<usize>],
-        all_queries_domains: &[Vec<Radix2CosetDomain<F>>],
-        all_queried_evaluations: &[Vec<Vec<F>>],
-        alphas: &[F],
-        all_final_polynomial_domain: &[Radix2CosetDomain<F>],
-        all_final_polynomials: &[DensePolynomial<F>],
-    ) -> bool {
-        for i in 0..all_queried_coset_indices.len() {
-            let result = Self::consistency_check_for_query(
-                fri_parameters,
-                &all_queried_coset_indices[i],
-                &all_queries_domains[i],
-                &all_queried_evaluations[i],
-                alphas,
-                &all_final_polynomial_domain[i],
-                &all_final_polynomials[i],
-            );
-            if !result {
-                return false;
-            }
-        }
-        true
-    }
-
     /// ## Step 3: Decision Phase (Check query)
     /// After preparing the query, verifier get the evaluations of corresponding query. Those evaluations needs
     /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
@@ -156,7 +118,7 @@ impl<F: PrimeField> FRIVerifier<F> {
     ///
     /// `queries[i]` is the coset query of the `ith` round polynomial, including the codeword polynomial.
     /// `queried_evaluations` stores the result of corresponding query.
-    pub fn consistency_check_for_query(
+    pub fn consistency_check(
         fri_parameters: &FRIParameters<F>,
         queried_coset_indices: &[usize],
         queries: &[Radix2CosetDomain<F>],
@@ -208,6 +170,43 @@ impl<F: PrimeField> FRIVerifier<F> {
             expected_next_round_eval,
             &final_polynomial,
         )
+    }
+
+    /// ## Step 3: Decision Phase (Check query)
+    /// After preparing all queries, verifier gets the evaluations of corresponding query. Those evaluations needs
+    /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
+    /// is consistent with each other, and the final polynomial is low-degree.
+    ///
+    /// * `all_queried_coset_indices[i][j]` is the `j`th round query coset index of `i`th query
+    /// * `all_queries_domains[i][j]` is the `j`th round query coset of `i`th query
+    /// * `all_queried_evaluations[i][j]` is a vector storing corresponding evaluations at `all_queries_domains[i][j]`
+    /// * `alphas[i]` is the randomness used by the polynomial
+    /// * `all_final_polynomial_domain[i]` is the final polynomial domain for `i`th query
+    /// * `all_final_polynomials` is the final polynomial for `i`th query
+    pub fn batch_consistency_check(
+        fri_parameters: &FRIParameters<F>,
+        all_queried_coset_indices: &[Vec<usize>],
+        all_queries_domains: &[Vec<Radix2CosetDomain<F>>],
+        all_queried_evaluations: &[Vec<Vec<F>>],
+        alphas: &[F],
+        all_final_polynomial_domain: &[Radix2CosetDomain<F>],
+        all_final_polynomials: &[DensePolynomial<F>],
+    ) -> bool {
+        for i in 0..all_queried_coset_indices.len() {
+            let result = Self::consistency_check(
+                fri_parameters,
+                &all_queried_coset_indices[i],
+                &all_queries_domains[i],
+                &all_queried_evaluations[i],
+                alphas,
+                &all_final_polynomial_domain[i],
+                &all_final_polynomials[i],
+            );
+            if !result {
+                return false;
+            }
+        }
+        true
     }
 
     /// Map coset in current round to a single point in next round.
@@ -285,7 +284,7 @@ mod tests {
         // verifier prepare queries
         let rand_coset_index = 31;
         let (query_cosets, query_indices, domain_final) =
-            FRIVerifier::prepare_one_query(rand_coset_index, &fri_parameters);
+            FRIVerifier::prepare_query(rand_coset_index, &fri_parameters);
         assert_eq!(query_indices.len(), 3);
         assert_eq!(domain_final, expected_domain_final);
 
@@ -328,7 +327,7 @@ mod tests {
         );
 
         // verifier verifies consistency
-        let result = FRIVerifier::consistency_check_for_query(
+        let result = FRIVerifier::consistency_check(
             &fri_parameters,
             &query_indices,
             &query_cosets,
