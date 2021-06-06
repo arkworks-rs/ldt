@@ -2,6 +2,16 @@ use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::{EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain, UVPolynomial};
 use ark_std::vec::Vec;
+
+#[cfg(feature = "r1cs")]
+use ark_r1cs_std::bits::boolean::Boolean;
+#[cfg(feature = "r1cs")]
+use ark_r1cs_std::fields::fp::FpVar;
+#[cfg(feature = "r1cs")]
+use ark_r1cs_std::fields::FieldVar;
+#[cfg(feature = "r1cs")]
+use ark_relations::r1cs::SynthesisError;
+
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
 ///
 /// Constraint equivalent is in `r1cs_std::poly::domain`.
@@ -136,6 +146,11 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
         self.base_domain.element(i) * self.offset
     }
 
+    #[cfg(feature = "r1cs")]
+    pub fn element_var(&self, index: &[Boolean<F>]) -> Result<FpVar<F>, SynthesisError> {
+        Ok(FpVar::constant(self.offset) * FpVar::constant(self.gen()).pow_le(index)?)
+    }
+
     /// Shrink the domain size such that new domain size = `self.size() / (1 << log_shrink_factor)`
     /// and has same offset.
     pub fn fold(&self, log_shrink_factor: u64) -> Radix2CosetDomain<F> {
@@ -187,5 +202,35 @@ mod tests {
                 evals_on_domain_coset[14]
             ]
         )
+    }
+
+    #[test]
+    #[cfg(feature = "r1cs")]
+    fn element_var_test() {
+        use ark_r1cs_std::alloc::AllocVar;
+        use ark_r1cs_std::uint64::UInt64;
+        use ark_r1cs_std::R1CSVar;
+        use ark_relations::r1cs::ConstraintSystem;
+        use ark_relations::*;
+
+        let mut rng = test_rng();
+        let offset = Fr::rand(&mut rng);
+        let domain_coset = Radix2CosetDomain::new_radix2_coset(15, offset);
+
+        let cs = ConstraintSystem::new_ref();
+        let index = 11;
+        let index_var = UInt64::new_witness(ns!(cs, "index"), || Ok(index))
+            .unwrap()
+            .to_bits_le();
+
+        let expected = domain_coset.element(index as usize);
+        let actual = domain_coset
+            .element_var(&index_var)
+            .unwrap()
+            .value()
+            .unwrap();
+
+        assert_eq!(expected, actual);
+        assert!(cs.is_satisfied().unwrap())
     }
 }

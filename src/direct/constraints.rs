@@ -25,7 +25,7 @@ impl<CF: PrimeField> DirectLDTGadget<CF> {
         // make sure the degree is within degree_bound. No need to include degree_bound check
         // in constraints because the verifier can just verify the size of circuit.
         assert!(
-            coefficients.coeffs.len() <= degree_bound,
+            coefficients.coeffs.len() <= degree_bound + 1,
             "polynomial degree out of bound"
         );
         coefficients
