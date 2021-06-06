@@ -11,7 +11,7 @@ ark-ff = { version = "^0.2.0", default-features = false }
 ark-std = { version = "^0.2.0", default-features = false }
 ark-relations = { version = "^0.2.0", default-features = false }
 ark-r1cs-std = { version = "^0.2.0", default-features = false}
-ark-sponge = { git = "https://github.com/arkworks-rs/sponge/", branch = "experimental", default-features = false }
+ark-sponge = { git = "https://github.com/arkworks-rs/sponge/", default-features = false }
 ark-poly = { version = "0.2.0", default-features = false }
 tracing = { version = "0.1", default-features = false, features = [ "attributes" ], optional = true}
 
@@ -25,4 +25,4 @@ std = ["ark-ff/std", "ark-std/std", "ark-relations/std", "ark-r1cs-std/std", "ar
 r1cs = ["ark-sponge/r1cs", "tracing"]
 
 [patch.crates-io]
-ark-r1cs-std = {git = "https://github.com/tsunrise/r1cs-std.git", branch = "domain2"}
+ark-r1cs-std = {git = "https://github.com/arkworks-rs/r1cs-std.git"}
