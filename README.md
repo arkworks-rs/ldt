@@ -16,7 +16,7 @@ This implementation is NOT ready for production use.
 ## Overview
 
 This library provides two LDT implementations: **Direct Low degree test** and **Fast Reed-Solomon Interactive Oracle Proof of Proximity (FRI)**.
-Both protocols takes an evaluation domain, represented as coset, and its evaluations and prove the polynomial that it evaluates to is 
+Both protocols takes an evaluation domain, represented as coset, and its evaluations and prove that the underlying polynomial is 
 proximate to a low-degree polynomial. 
 
 The library also comes with R1CS constraints for verifiers. Enable `r1cs` feature to use those constraints. 
