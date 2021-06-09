@@ -37,8 +37,11 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
         Self::new(Radix2EvaluationDomain::new(coset_size).unwrap(), offset)
     }
 
-    /// Query a coset according to its position. Returns the positions of coset elements in `self`,
-    /// and the result coset represented as domain.
+    /// Converts a query position to the elements of the unique coset of size `log_coset_size`
+    /// within this domain that the query lies in.
+    /// `query_position` is an index within this domain.
+    /// Returns the positions of coset elements in `self`,
+    /// and the coset represented as a Radix2CosetDomain.
     pub fn query_position_to_coset(
         &self,
         query_position: usize,
