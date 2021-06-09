@@ -59,7 +59,7 @@ conditions.
 [Fractal: Post-Quantum and Transparent Recursive Proofs from Holography][cos20]<br>
 Alessandro Chiesa, Dev Ojha, Nicholas Spooner     
 
-[Interactive Oracle Proofs][bbhr17]<br>
+[Fast Reed-Solomon Interactive Oracle Proofs of Proximity][bbhr17]<br>
 Eli Ben-Sasson, Iddo Bentov, Ynon Horesh, Michael Riabzev
 
 [cos20]: https://eprint.iacr.org/2019/1076
