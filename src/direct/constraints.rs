@@ -6,6 +6,7 @@ use ark_r1cs_std::poly::polynomial::univariate::dense::DensePolynomialVar;
 use ark_relations::r1cs::SynthesisError;
 use ark_std::marker::PhantomData;
 
+/// Constraints for direct ldt.
 pub struct DirectLDTGadget<CF: PrimeField> {
     _marker: PhantomData<CF>,
 }

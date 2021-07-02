@@ -9,6 +9,7 @@ use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
 /// Direct LDT by interpolating evaluations and truncating coefficients to low degree.
+/// Direct LDT requires communication linear to degree bound. Use FRI for better communication complexity.
 pub struct DirectLDT<F: PrimeField> {
     marker: PhantomData<F>,
 }
@@ -21,13 +22,13 @@ impl<F: PrimeField> DirectLDT<F> {
     /// ### Prover Side
     ///
     /// Generate the coefficient of the low-degree polynomial obtained by interpolating the domain evaluations.
-    /// The polynomial is trimmed to `degree_bound` as necessary.
+    /// The polynomial is trimmed to `degree_bound` when necessary.
     pub fn generate_low_degree_coefficients(
         domain: Radix2CosetDomain<F>,
-        evaluations: Vec<F>,
+        codewords: Vec<F>,
         degree_bound: usize,
     ) -> DensePolynomial<F> {
-        let mut poly = domain.interpolate(evaluations);
+        let mut poly = domain.interpolate(codewords);
         // trim higher degree: if poly is higher degree, then the soundness should fail
         poly.coeffs.truncate(degree_bound + 1);
         poly
@@ -36,13 +37,13 @@ impl<F: PrimeField> DirectLDT<F> {
     /// ### Verifier Side
     ///
     /// Verifier sample one element from domain and get its evaluation. Check if that evaluation
-    /// agrees with low-degree polynomial.
+    /// agrees with low-degree polynomial. Verifier needs to check number of coefficients <= degree_bound + 1.
     pub fn verify_low_degree_single_round(
         sampled_domain_element: F,
         sampled_evaluation_element: F,
-        coefficients: &DensePolynomial<F>,
+        bounded_coefficients: &DensePolynomial<F>,
     ) -> bool {
-        return coefficients.evaluate(&sampled_domain_element) == sampled_evaluation_element;
+        return bounded_coefficients.evaluate(&sampled_domain_element) == sampled_evaluation_element;
     }
 }
 

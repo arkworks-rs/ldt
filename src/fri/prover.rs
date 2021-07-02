@@ -9,15 +9,14 @@ pub struct FRIProver<F: PrimeField> {
 }
 
 impl<F: PrimeField> FRIProver<F> {
-    /// Single round prover in commit phase. Returns the polynomial for next round
-    /// represented by evaluations over domain in next round.
+    /// Single round prover in commit phase. Returns the evaluation oracles for next round.
     ///
     /// The prover is inefficient. TODO: Adapt code from libiop.
     ///
     /// Returns domain for next round polynomial and evaluations over the domain.
     pub fn interactive_phase_single_round_naive(
         domain: Radix2CosetDomain<F>,
-        poly_over_domain: Vec<F>,
+        evaluation_oracles_over_domain: Vec<F>,
         localization_param: u64,
         alpha: F,
     ) -> (Radix2CosetDomain<F>, Vec<F>) {
@@ -34,7 +33,7 @@ impl<F: PrimeField> FRIProver<F> {
             let mut poly_evals = Vec::new();
             for intra_coset_index in 0..coset_size {
                 poly_evals.push(
-                    poly_over_domain
+                    evaluation_oracles_over_domain
                         [(coset_index + intra_coset_index * dist_between_coset_elems) as usize],
                 );
             }

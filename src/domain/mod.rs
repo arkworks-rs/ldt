@@ -150,6 +150,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
     }
 
     #[cfg(feature = "r1cs")]
+    /// Returns an element fo the coset, given the index as a variable.
     pub fn element_var(&self, index: &[Boolean<F>]) -> Result<FpVar<F>, SynthesisError> {
         Ok(FpVar::constant(self.offset) * FpVar::constant(self.gen()).pow_le(index)?)
     }

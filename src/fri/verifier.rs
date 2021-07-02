@@ -38,7 +38,7 @@ impl<F: PrimeField> FRIVerifier<F> {
 
     /// ## Step 2: Query Phase (Prepare Query)
     /// Prepare one query given the random coset index. The returned value `queries[i]` is the coset query
-    /// of the `ith` round polynomial (including codeword polynomial but does not include final polynomial).
+    /// of the `ith` round polynomial (including codeword but does not include final polynomial).
     /// Final polynomial is not queried. Instead, verifier will get
     /// the whole final polynomial in evaluation form, and do direct LDT.
     ///
@@ -81,10 +81,10 @@ impl<F: PrimeField> FRIVerifier<F> {
     /// Prepare all queries given the sampled random coset indices.
     ///
     /// The first returned value `queries[i][j]` is the coset query
-    /// of the `j`th round polynomial (including input polynomial but does not include final polynomial) for `i`th query.
+    /// of the `j`th round polynomial (including codeword but does not include final polynomial) for `i`th query.
     ///
     /// The second returned value `indices[i][j]` is the coset index
-    /// of the `j`th round polynomial (including input polynomial but does not include final polynomial) for `i`th query.
+    /// of the `j`th round polynomial (including codeword but does not include final polynomial) for `i`th query.
     ///
     /// The last returned value `final[i]` is the final polynomial domain at round `i`.
     pub fn batch_prepare_queries(

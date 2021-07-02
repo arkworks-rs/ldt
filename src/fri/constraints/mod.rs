@@ -16,6 +16,7 @@ use ark_sponge::constraints::CryptographicSpongeVar;
 use ark_sponge::FieldBasedCryptographicSponge;
 use ark_std::marker::PhantomData;
 
+/// Constraints for FRI verifier.
 pub struct FRIVerifierGadget<F: PrimeField> {
     _marker: PhantomData<F>,
 }
