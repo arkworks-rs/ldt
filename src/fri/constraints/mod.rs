@@ -162,7 +162,7 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
 
         let final_element_index = queried_coset_indices.last().unwrap();
 
-        DirectLDTGadget::verify_low_degree_single_round(
+        DirectLDTGadget::verify(
             final_polynomial_domain.element_var(final_element_index)?,
             expected_next_round_eval,
             final_polynomial,

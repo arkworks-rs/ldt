@@ -9,7 +9,7 @@ use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
 /// Direct LDT by interpolating evaluations and truncating coefficients to low degree.
-/// Direct LDT requires communication linear to degree bound. Use FRI for better communication complexity.
+/// /// This requires communication linear in the degree bound; use FRI for better communication complexity.
 pub struct DirectLDT<F: PrimeField> {
     marker: PhantomData<F>,
 }
@@ -36,14 +36,19 @@ impl<F: PrimeField> DirectLDT<F> {
 
     /// ### Verifier Side
     ///
-    /// Verifier sample one element from domain and get its evaluation. Check if that evaluation
-    /// agrees with low-degree polynomial. Verifier needs to check number of coefficients <= degree_bound + 1.
-    pub fn verify_low_degree_single_round(
-        sampled_domain_element: F,
-        sampled_evaluation_element: F,
+    /// The Direct LDT Verify function tests that given a list of coefficients `a_0, a_1, ..., a_{d-1}`
+    /// an evaluation point `x`, and claimed evaluation `y`, that `y = \sum_{i =0}^{d} a_i x^i`.
+    /// This proves that the provided coefficients of a degree `d` polynomial agree with the claimed
+    /// `(evaluation_point, claimed_evaluation)` pair.
+    /// This is used to construct a low degree test for an oracle to a claimed polynomials evaluations over a domain.
+    /// By sampling enough (domain_element, claimed_evaluation) pairs from the oracle, and testing them
+    /// via this method, you become convinced w.h.p. that the oracle is sufficiently close to the claimed coefficients list.
+    pub fn verify(
+        evaluation_point: F,
+        claimed_evaluation: F,
         bounded_coefficients: &DensePolynomial<F>,
     ) -> bool {
-        return bounded_coefficients.evaluate(&sampled_domain_element) == sampled_evaluation_element;
+        return bounded_coefficients.evaluate(&evaluation_point) == claimed_evaluation;
     }
 }
 
@@ -125,7 +130,7 @@ mod tests {
         let sampled_element = domain_coset.element(15);
         let sampled_evaluation = evaluations[15];
 
-        assert!(DirectLDT::verify_low_degree_single_round(
+        assert!(DirectLDT::verify(
             sampled_element,
             sampled_evaluation,
             &low_degree_poly

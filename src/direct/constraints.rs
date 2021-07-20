@@ -14,12 +14,16 @@ pub struct DirectLDTGadget<CF: PrimeField> {
 impl<CF: PrimeField> DirectLDTGadget<CF> {
     /// ### Verifier Side
     ///
-    /// Verifier sample one element from domain and get its evaluation. Check if that evaluation
-    /// agrees with low-degree polynomial. Assume that `DensePolynomial` is low-degree, and verifier
-    /// need to check that.
-    pub fn verify_low_degree_single_round(
-        sampled_domain_element: FpVar<CF>,
-        sampled_evaluation_element: FpVar<CF>,
+    /// The Direct LDT Verify function tests that given a list of coefficients `a_0, a_1, ..., a_{d-1}`
+    /// an evaluation point `x`, and claimed evaluation `y`, that `y = \sum_{i =0}^{d} a_i x^i`.
+    /// This proves that the provided coefficients of a degree `d` polynomial agree with the claimed
+    /// `(evaluation_point, claimed_evaluation)` pair.
+    /// This is used to construct a low degree test for an oracle to a claimed polynomials evaluations over a domain.
+    /// By sampling enough (domain_element, claimed_evaluation) pairs from the oracle, and testing them
+    /// via this method, you become convinced w.h.p. that the oracle is sufficiently close to the claimed coefficients list.
+    pub fn verify(
+        evaluation_point: FpVar<CF>,
+        claimed_evaluation: FpVar<CF>,
         coefficients: &DensePolynomialVar<CF>,
         degree_bound: usize,
     ) -> Result<Boolean<CF>, SynthesisError> {
@@ -30,7 +34,7 @@ impl<CF: PrimeField> DirectLDTGadget<CF> {
             "polynomial degree out of bound"
         );
         coefficients
-            .evaluate(&sampled_domain_element)?
-            .is_eq(&sampled_evaluation_element)
+            .evaluate(&evaluation_point)?
+            .is_eq(&claimed_evaluation)
     }
 }

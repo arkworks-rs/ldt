@@ -1,4 +1,4 @@
-<h1 align="center">Low Degree Test</h1>
+<h1 align="center">arkworks::ldt</h1>
 
 <p align="center">
     <a href="https://github.com/arkworks-rs/sponge/blob/master/LICENSE-APACHE">

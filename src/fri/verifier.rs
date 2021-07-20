@@ -165,7 +165,7 @@ impl<F: PrimeField> FRIVerifier<F> {
             final_polynomial.degree() <= final_poly_degree_bound as usize,
             "final polynomial degree is too large!"
         );
-        DirectLDT::verify_low_degree_single_round(
+        DirectLDT::verify(
             final_polynomial_domain.element(final_element_index),
             expected_next_round_eval,
             &final_polynomial,

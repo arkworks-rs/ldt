@@ -240,7 +240,7 @@ pub mod tests {
         let sampled_element = domain_next_round.element(15);
         let sampled_evaluation = eval_next_round[15];
 
-        assert!(DirectLDT::verify_low_degree_single_round(
+        assert!(DirectLDT::verify(
             sampled_element,
             sampled_evaluation,
             &low_degree_poly
