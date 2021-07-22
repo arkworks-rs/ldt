@@ -22,7 +22,8 @@ pub struct FRIVerifierGadget<F: PrimeField> {
 }
 
 impl<F: PrimeField> FRIVerifierGadget<F> {
-    /// Doc: TODO
+    /// ## Step 1: Interative Phase
+    /// Sample alpha in interactive phase.
     pub fn interactive_phase_single_round<
         S: FieldBasedCryptographicSponge<F>,
         SV: CryptographicSpongeVar<F, S>,
@@ -36,7 +37,8 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
             .clone())
     }
 
-    /// Doc: TODO
+    /// ## Step 2: Sample Queried Coset
+    /// Sample the coset to be queried.
     pub fn sample_coset_index<
         S: FieldBasedCryptographicSponge<F>,
         SV: CryptographicSpongeVar<F, S>,
@@ -49,7 +51,13 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
         sponge_var.squeeze_bits(log_num_cosets)
     }
 
-    /// Doc: TODO
+    /// ## Step 2: Query Phase (Prepare Query)
+    /// Prepare one query given the random coset index. The returned value `queries[i]` is the coset query
+    /// of the `ith` round polynomial (including codeword but does not include final polynomial).
+    /// Final polynomial is not queried. Instead, verifier will get
+    /// the whole final polynomial in evaluation form, and do direct LDT.
+    ///
+    /// Returns the all query domains, and query coset index, final polynomial domain
     pub fn prepare_query(
         rand_coset_index: Vec<Boolean<F>>,
         fri_parameters: &FRIParameters<F>,
@@ -114,7 +122,13 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
         evaluations.interpolate_and_evaluate(&alpha)
     }
 
-    /// Doc: TODO
+    /// ## Step 3: Decision Phase (Check query)
+    /// After preparing the query, verifier get the evaluations of corresponding query. Those evaluations needs
+    /// to be checked by merkle tree. Then verifier calls this method to check if polynomial sent in each round
+    /// is consistent with each other, and the final polynomial is low-degree.
+    ///
+    /// `queries[i]` is the coset query of the `ith` round polynomial, including the codeword polynomial.
+    /// `queried_evaluations` stores the result of corresponding query.
     pub fn consistency_check(
         fri_parameters: &FRIParameters<F>,
         queried_coset_indices: &[Vec<Boolean<F>>],
@@ -229,13 +243,13 @@ mod tests {
         let cs = ConstraintSystem::new_ref();
 
         let mut rng = test_rng();
-        let poly = DensePolynomial::rand(32, &mut rng);
+        let poly = DensePolynomial::rand(64, &mut rng);
         let offset = Fr::rand(&mut rng);
         let domain_input = Radix2CosetDomain::new_radix2_coset(128, offset);
         let evaluations_input = domain_input.evaluate(&poly);
 
         // set up verifier parameters
-        let fri_parameters = FRIParameters::new(32, vec![1, 2, 1], domain_input);
+        let fri_parameters = FRIParameters::new(64, vec![1, 2, 2], domain_input);
         let alphas: Vec<_> = (0..3).map(|_| Fr::rand(&mut rng)).collect();
         let alphas_var: Vec<_> = alphas
             .iter()

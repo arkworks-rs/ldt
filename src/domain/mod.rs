@@ -23,6 +23,7 @@ pub struct Radix2CosetDomain<F: PrimeField> {
     pub offset: F,
 }
 
+// TODO: Move this to algebra, per https://github.com/arkworks-rs/algebra/issues/88#issuecomment-734963835
 impl<F: PrimeField> Radix2CosetDomain<F> {
     /// Returns a new coset domain.
     pub fn new(base_domain: Radix2EvaluationDomain<F>, offset: F) -> Self {
@@ -122,7 +123,11 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
     /// Evaluate polynomial on this coset
     pub fn evaluate(&self, poly: &DensePolynomial<F>) -> Vec<F> {
         if self.size() < poly.degree() + 1 {
-            // we use naive method. TODO: use a more efficient method
+            // we use naive method for evaluating a polynomial larger than the domain size.
+            // TODO: use a more efficient method using the fact that:
+            // (hg)^{|base_domain|} = h^{|base_domain|},
+            // so we can efficiently fold the polynomial's coefficients on itself,
+            // into a single polynomial of degree `self.size() - 1`
             return self
                 .base_domain
                 .elements()

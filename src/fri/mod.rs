@@ -7,8 +7,6 @@ use ark_std::vec::Vec;
 pub mod constraints;
 /// Prover used by FRI protocol.
 pub mod prover;
-#[cfg(test)]
-mod test;
 /// Verifier used by FRI protocol.
 pub mod verifier;
 
