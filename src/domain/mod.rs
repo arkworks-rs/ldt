@@ -1,8 +1,6 @@
 use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::{EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain, UVPolynomial};
-use ark_std::vec::Vec;
-
 #[cfg(feature = "r1cs")]
 use ark_r1cs_std::bits::boolean::Boolean;
 #[cfg(feature = "r1cs")]
@@ -11,6 +9,7 @@ use ark_r1cs_std::fields::fp::FpVar;
 use ark_r1cs_std::fields::FieldVar;
 #[cfg(feature = "r1cs")]
 use ark_relations::r1cs::SynthesisError;
+use ark_std::vec::Vec;
 
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
 ///
@@ -178,6 +177,69 @@ mod tests {
     use ark_test_curves::bls12_381::Fr;
 
     use crate::domain::Radix2CosetDomain;
+
+    #[cfg(feature = "r1cs")]
+    mod consistency_with_constraints {
+        use ark_poly::univariate::DensePolynomial;
+        use ark_poly::Radix2EvaluationDomain;
+        use ark_poly::{EvaluationDomain, Polynomial, UVPolynomial};
+        use ark_r1cs_std::alloc::AllocVar;
+        use ark_r1cs_std::fields::fp::FpVar;
+        use ark_r1cs_std::fields::FieldVar;
+        use ark_r1cs_std::poly::evaluations::univariate::EvaluationsVar;
+        use ark_r1cs_std::R1CSVar;
+        use ark_relations::r1cs::ConstraintSystem;
+        use ark_std::{test_rng, UniformRand};
+        use ark_test_curves::bls12_381::Fr;
+
+        use crate::domain::Radix2CosetDomain;
+
+        #[test]
+        fn test_consistency_with_coset_constraints() {
+            let mut rng = test_rng();
+            let degree = 51;
+            let poly = DensePolynomial::<Fr>::rand(degree, &mut rng);
+            let base_domain = Radix2EvaluationDomain::new(degree + 1).unwrap();
+            let offset = Fr::rand(&mut rng);
+            let coset = Radix2CosetDomain::new(base_domain, offset);
+
+            // test evaluation
+            let expected_eval: Vec<_> = coset
+                .base_domain
+                .elements()
+                .map(|x| poly.evaluate(&(offset * x)))
+                .collect();
+            let actual_eval = coset.evaluate(&poly);
+            assert_eq!(actual_eval, expected_eval);
+
+            // test interpolation
+            let interpolated_poly = coset.interpolate(expected_eval.to_vec());
+            assert_eq!(interpolated_poly, poly);
+
+            // test consistency with r1cs-std
+            let cs = ConstraintSystem::new_ref();
+            let eval_var: Vec<_> = expected_eval
+                .iter()
+                .map(|x| FpVar::new_witness(ark_relations::ns!(cs, "eval_var"), || Ok(*x)).unwrap())
+                .collect();
+            let r1cs_coset = ark_r1cs_std::poly::domain::Radix2DomainVar {
+                gen: base_domain.group_gen,
+                offset: FpVar::constant(offset),
+                dim: ark_std::log2(degree.next_power_of_two()) as u64,
+            };
+            let eval_var = EvaluationsVar::from_vec_and_domain(eval_var, r1cs_coset, true);
+
+            let pt = Fr::rand(&mut rng);
+            let pt_var =
+                FpVar::new_witness(ark_relations::ns!(cs, "random point"), || Ok(pt)).unwrap();
+
+            let expected = poly.evaluate(&pt);
+            let actual = eval_var.interpolate_and_evaluate(&pt_var).unwrap();
+
+            assert_eq!(actual.value().unwrap(), expected);
+            assert!(cs.is_satisfied().unwrap());
+        }
+    }
 
     #[test]
     fn query_coset_test() {
