@@ -7,7 +7,7 @@
         <img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
-`ark-ldt` is a Rust library that provides implementations of low-degree tests. This library is released under the MIT License
+`ark-ldt` is a Rust library that provides implementations of low-degree tests (LDTs). This library is released under the MIT License
 and the Apache v2 License (see [License](#license)).
 
 **WARNING:** This is an academic prototype, and in particular has not received careful code review.
@@ -15,11 +15,7 @@ This implementation is NOT ready for production use.
 
 ## Overview
 
-This library provides two LDT implementations: **Direct Low degree test** and **Fast Reed-Solomon Interactive Oracle Proof of Proximity (FRI)**.
-Both protocols takes an evaluation domain, represented as coset, and its evaluations and prove that the underlying polynomial is 
-proximate to a low-degree polynomial. 
-
-The library also comes with R1CS constraints for verifiers. Enable `r1cs` feature to use those constraints. 
+A (univariate) low-degree test is an IOP that checks that a given function is close to a (univariate) polynomial of low degree. This library provides two LDTs: the **direct low-degree test** and the **FRI Protocol**. The library also comes with R1CS constraints for the LDT verifiers. Enable `r1cs` feature to use those constraints. 
 
 ## Build Guide
 
