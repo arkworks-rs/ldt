@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
 env:
   RUST_BACKTRACE: 1
 
@@ -50,14 +50,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Check examples
         uses: actions-rs/cargo@v1
         with:
@@ -75,16 +67,14 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
             command: check
-            args: --all-features --examples --workspace --benches
+            args: --all-features --examples --all --benches
         if: matrix.rust == 'nightly'
 
       - name: Test
         uses: actions-rs/cargo@v1
         with:
             command: test
-            args: "--workspace \
-                   --all-features \
-                   --exclude ark-poly-benches"
+            args: --release
 
   check_no_std:
     name: Check no_std
@@ -115,14 +105,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: check
-        uses: actions-rs/cargo@v1
-        with:
-            command: check
-            args: --examples --workspace --exclude ark-poly-benches --target thumbv6m-none-eabi
-
-      - name: build
-        uses: actions-rs/cargo@v1
-        with:
-            command: build
-            args: --workspace --exclude ark-poly-benches --target thumbv6m-none-eabi
+      - name: ldt
+        run: |
+          cargo build --no-default-features --target aarch64-unknown-none
+          cargo check --examples --no-default-features --target aarch64-unknown-none
