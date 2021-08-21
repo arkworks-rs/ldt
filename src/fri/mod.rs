@@ -11,6 +11,7 @@ pub mod prover;
 pub mod verifier;
 
 /// Some parameters used by FRI verifiers.
+#[derive(Clone)]
 pub struct FRIParameters<F: PrimeField> {
     /// The degree
     pub tested_degree: u64,
