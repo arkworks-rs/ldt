@@ -15,6 +15,7 @@ use ark_relations::r1cs::SynthesisError;
 use ark_sponge::constraints::CryptographicSpongeVar;
 use ark_sponge::FieldBasedCryptographicSponge;
 use ark_std::marker::PhantomData;
+use ark_std::vec::Vec;
 
 /// Constraints for FRI verifier.
 pub struct FRIVerifierGadget<F: PrimeField> {
