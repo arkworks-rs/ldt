@@ -29,7 +29,7 @@ rustup install stable
 After that, use `cargo` (the standard Rust build tool) to build the library:
 ```bash
 git clone https://github.com/arkworks-rs/ldt.git
-cd sponge 
+cd ldt
 cargo build --release
 ```
 
