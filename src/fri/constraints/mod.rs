@@ -96,7 +96,11 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
             let query_offset = &FpVar::constant(curr_round_domain.offset)
                 * &(FpVar::constant(curr_round_domain.gen()).pow_le(&curr_coset_index)?);
 
-            let query_coset = Radix2DomainVar::new(query_gen, fri_parameters.localization_parameters[i], query_offset)?;
+            let query_coset = Radix2DomainVar::new(
+                query_gen,
+                fri_parameters.localization_parameters[i],
+                query_offset,
+            )?;
 
             queries.push(query_coset);
 
