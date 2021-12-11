@@ -96,11 +96,7 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
             let query_offset = &FpVar::constant(curr_round_domain.offset)
                 * &(FpVar::constant(curr_round_domain.gen()).pow_le(&curr_coset_index)?);
 
-            let query_coset = Radix2DomainVar {
-                gen: query_gen,
-                offset: query_offset,
-                dim: fri_parameters.localization_parameters[i],
-            };
+            let query_coset = Radix2DomainVar::new(query_gen, fri_parameters.localization_parameters[i], query_offset)?;
 
             queries.push(query_coset);
 
@@ -229,7 +225,7 @@ mod tests {
 
         for i in 0..query_cosets.len() {
             assert_eq!(
-                query_cosets_actual[i].offset.value().unwrap(),
+                query_cosets_actual[i].offset().value().unwrap(),
                 query_cosets[i].offset
             );
             assert_eq!(query_cosets_actual[i].gen, query_cosets[i].gen());
@@ -297,7 +293,7 @@ mod tests {
             query_indices_native[0],
             fri_parameters.localization_parameters[0] as usize,
         );
-        assert_eq!(qi.offset, query_cosets[0].offset.value().unwrap());
+        assert_eq!(qi.offset, query_cosets[0].offset().value().unwrap());
         let answer_input: Vec<_> = indices
             .iter()
             .map(|&i| {
@@ -309,7 +305,7 @@ mod tests {
             query_indices_native[1],
             fri_parameters.localization_parameters[1] as usize,
         );
-        assert_eq!(q0.offset, query_cosets[1].offset.value().unwrap());
+        assert_eq!(q0.offset, query_cosets[1].offset().value().unwrap());
         let answer_round_0: Vec<_> = indices
             .iter()
             .map(|&i| {
@@ -335,7 +331,7 @@ mod tests {
                 .unwrap()
             })
             .collect();
-        assert_eq!(q1.offset, query_cosets[2].offset.value().unwrap());
+        assert_eq!(q1.offset, query_cosets[2].offset().value().unwrap());
 
         let total_shrink_factor: u64 = fri_parameters.localization_parameters.iter().sum();
         let final_poly_degree_bound = fri_parameters.tested_degree >> total_shrink_factor;
