@@ -15,9 +15,12 @@ ark-poly = { version = "0.3.0", default-features = false }
 ark-relations = { version = "^0.3.0", default-features = false, optional = true}
 tracing = { version = "0.1", default-features = false, features = [ "attributes" ], optional = true}
 
-
 [dev-dependencies]
 ark-test-curves = { version = "^0.3.0", default-features = false, features = ["bls12_381_scalar_field", "mnt4_753_scalar_field"] }
+
+[patch.crates-io]
+ark-sponge = {git = "https://github.com/arkworks-rs/sponge"}
+ark-r1cs-std = {git = "https://github.com/arkworks-rs/r1cs-std", branch = "master"}
 
 [features]
 default = ["std"]
