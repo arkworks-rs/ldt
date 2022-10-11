@@ -2,7 +2,6 @@
 
 //! A crate for low-degree tests.
 #![deny(
-    const_err,
     future_incompatible,
     missing_docs,
     non_shorthand_field_patterns,
