@@ -195,7 +195,7 @@ mod tests {
     use crate::fri::verifier::FRIVerifier;
     use crate::fri::FRIParameters;
     use ark_poly::polynomial::univariate::DensePolynomial;
-    use ark_poly::UVPolynomial;
+    use ark_poly::DenseUVPolynomial;
     use ark_r1cs_std::alloc::AllocVar;
     use ark_r1cs_std::bits::uint64::UInt64;
     use ark_r1cs_std::fields::fp::FpVar;

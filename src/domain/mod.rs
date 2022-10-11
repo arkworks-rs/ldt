@@ -184,7 +184,7 @@ mod tests {
     mod consistency_with_constraints {
         use ark_poly::univariate::DensePolynomial;
         use ark_poly::Radix2EvaluationDomain;
-        use ark_poly::{EvaluationDomain, Polynomial, UVPolynomial};
+        use ark_poly::{DenseUVPolynomial, EvaluationDomain, Polynomial};
         use ark_r1cs_std::alloc::AllocVar;
         use ark_r1cs_std::fields::fp::FpVar;
         use ark_r1cs_std::fields::FieldVar;
