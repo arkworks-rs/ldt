@@ -173,7 +173,7 @@ pub mod tests {
     use crate::domain::Radix2CosetDomain;
     use crate::fri::prover::FRIProver;
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::UVPolynomial;
+    use ark_poly::DenseUVPolynomial;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 

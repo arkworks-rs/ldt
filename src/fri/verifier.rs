@@ -236,7 +236,7 @@ fn le_bits_array_to_usize(bits: &[bool]) -> usize {
 mod tests {
     use ark_ff::UniformRand;
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::{Polynomial, UVPolynomial};
+    use ark_poly::{DenseUVPolynomial, Polynomial};
     use ark_std::test_rng;
     use ark_test_curves::bls12_381::Fr;
 

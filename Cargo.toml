@@ -20,9 +20,41 @@ ark-test-curves = { version = "^0.3.0", default-features = false, features = ["b
 
 [patch.crates-io]
 ark-sponge = {git = "https://github.com/arkworks-rs/sponge"}
-ark-r1cs-std = {git = "https://github.com/arkworks-rs/r1cs-std", branch = "master"}
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
+ark-std = { git = "https://github.com/arkworks-rs/std" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+incremental = true
+panic = 'abort'
+
+[profile.bench]
+opt-level = 3
+debug = false
+rpath = false
+lto = "thin"
+incremental = true
+debug-assertions = false
+
+[profile.dev]
+opt-level = 0
+panic = 'abort'
+
+[profile.test]
+opt-level = 3
+lto = "thin"
+incremental = true
+debug-assertions = true
+debug = true
 
 [features]
 default = ["std"]
 std = ["ark-ff/std", "ark-std/std", "ark-relations/std", "ark-r1cs-std/std", "ark-sponge/std", "ark-poly/std"]
 r1cs = ["ark-sponge/r1cs", "tracing", "ark-relations"]
+
