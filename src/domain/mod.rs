@@ -176,7 +176,7 @@ mod tests {
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::DenseUVPolynomial;
     use ark_poly::Polynomial;
-    use ark_std::{test_rng, UniformRand};
+    use ark_std::{test_rng, vec, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 
     use crate::domain::Radix2CosetDomain;
