@@ -2,6 +2,8 @@
 use crate::direct::constraints::DirectLDTGadget;
 use crate::domain::Radix2CosetDomain;
 use crate::fri::FRIParameters;
+use ark_crypto_primitives::sponge::constraints::CryptographicSpongeVar;
+use ark_crypto_primitives::sponge::FieldBasedCryptographicSponge;
 use ark_ff::PrimeField;
 use ark_r1cs_std::bits::boolean::Boolean;
 use ark_r1cs_std::eq::EqGadget;
@@ -12,8 +14,6 @@ use ark_r1cs_std::poly::evaluations::univariate::EvaluationsVar;
 use ark_r1cs_std::poly::polynomial::univariate::dense::DensePolynomialVar;
 use ark_r1cs_std::prelude::CondSelectGadget;
 use ark_relations::r1cs::SynthesisError;
-use ark_sponge::constraints::CryptographicSpongeVar;
-use ark_sponge::FieldBasedCryptographicSponge;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
 
