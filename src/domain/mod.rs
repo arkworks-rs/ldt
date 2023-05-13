@@ -174,6 +174,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
 #[cfg(test)]
 mod tests {
     use ark_poly::univariate::DensePolynomial;
+    use ark_poly::DenseUVPolynomial;
     use ark_poly::Polynomial;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
