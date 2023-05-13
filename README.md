@@ -38,14 +38,10 @@ This library comes with some unit and integration tests. Run these tests with:
 cargo test
 ```
 
-To use this library, you need to add the following to your `Cargo.toml`. Note that this configuration will bump `ark-sponge` and `ark-r1cs-std` to `master`/`main` instead of stable version on `crates.io`.
+To use this library, you need to add the following to your `Cargo.toml`.
 ```toml
 [dependencies]
 ark-ldt = {git = "https://github.com/arkworks-rs/ldt", branch="main", default-features = false}
-
-[patch.crates-io]
-ark-sponge = {git = "https://github.com/arkworks-rs/sponge"}
-ark-r1cs-std = {git = "https://github.com/arkworks-rs/r1cs-std", branch = "master"}
 ```
 
 ## License
