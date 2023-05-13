@@ -3,10 +3,10 @@ use ark_std::marker::PhantomData;
 use crate::direct::DirectLDT;
 use crate::domain::Radix2CosetDomain;
 use crate::fri::FRIParameters;
+use ark_crypto_primitives::sponge::FieldBasedCryptographicSponge;
 use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::Polynomial;
-use ark_sponge::FieldBasedCryptographicSponge;
 use ark_std::vec::Vec;
 
 /// Implements FRI verifier.
@@ -236,7 +236,7 @@ fn le_bits_array_to_usize(bits: &[bool]) -> usize {
 mod tests {
     use ark_ff::UniformRand;
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::{DenseUVPolynomial, Polynomial};
+    use ark_poly::{Polynomial, UVPolynomial};
     use ark_std::test_rng;
     use ark_test_curves::bls12_381::Fr;
 

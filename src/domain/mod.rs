@@ -1,4 +1,4 @@
-use ark_ff::PrimeField;
+use ark_ff::fields::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::{
     DenseUVPolynomial, EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain,
@@ -17,7 +17,7 @@ use ark_std::vec::Vec;
 ///
 /// Constraint equivalent is in `r1cs_std::poly::domain`.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct Radix2CosetDomain<F: PrimeField> {
+pub struct Radix2CosetDomain<F: PrimeField + ark_ff::fields::FftField> {
     /// A non-coset radix 2 domain: `<g>`
     pub base_domain: Radix2EvaluationDomain<F>,
     /// offset `h`
@@ -174,7 +174,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
 #[cfg(test)]
 mod tests {
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::{DenseUVPolynomial, Polynomial};
+    use ark_poly::Polynomial;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 
