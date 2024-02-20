@@ -7,22 +7,21 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-crypto-primitives = { version="^0.4.0", default-features = false }
-ark-ff = { version = "^0.3.0", default-features = false }
-ark-std = { version = "^0.3.0", default-features = false }
-ark-r1cs-std = { version = "^0.3.0", default-features = false}
-ark-sponge = { version = "^0.3.0", default-features = false }
-ark-poly = { version = "0.3.0" }
-ark-relations = { version = "^0.3.0", default-features = false, optional = true}
+ark-crypto-primitives = { version="^0.4.0", features = ["sponge"] }
+ark-ff = { version = "^0.4.2", default-features = false }
+ark-std = { version = "^0.4.0", default-features = false }
+ark-r1cs-std = { version = "^0.4.0", default-features = false}
+ark-poly = { version = "0.4.2" }
+ark-relations = { version = "^0.4.0", default-features = false, optional = true}
 tracing = { version = "0.1", default-features = false, features = [ "attributes" ], optional = true}
 
 [dev-dependencies]
-ark-test-curves = { version = "^0.3.0", default-features = false, features = ["bls12_381_scalar_field", "mnt4_753_scalar_field"] }
+ark-test-curves = { version = "^0.4.2", default-features = false, features = ["bls12_381_scalar_field", "mnt4_753_scalar_field"] }
 
 [patch.crates-io]
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std" }
 ark-ec = { git = "https://github.com/arkworks-rs/algebra" }
-ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/" }
 ark-poly = { git = "https://github.com/arkworks-rs/algebra" }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
 ark-std = { git = "https://github.com/arkworks-rs/std" }

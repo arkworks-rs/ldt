@@ -56,7 +56,7 @@ impl<F: PrimeField> DirectLDT<F> {
 mod tests {
     use crate::direct::{DirectLDT, Radix2CosetDomain};
     use ark_ff::UniformRand;
-    use ark_poly::{univariate::DensePolynomial, UVPolynomial};
+    use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
     use ark_std::test_rng;
     use ark_test_curves::bls12_381::Fr;
 
