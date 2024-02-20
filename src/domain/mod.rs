@@ -1,7 +1,7 @@
 use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::{
-    DenseUVPolynomial, EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain,
+    UVPolynomial, EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain,
 };
 #[cfg(feature = "r1cs")]
 use ark_r1cs_std::bits::boolean::Boolean;
@@ -174,7 +174,7 @@ impl<F: PrimeField> Radix2CosetDomain<F> {
 #[cfg(test)]
 mod tests {
     use ark_poly::univariate::DensePolynomial;
-    use ark_poly::{DenseUVPolynomial, Polynomial};
+    use ark_poly::{UVPolynomial, Polynomial};
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 
