@@ -1,7 +1,7 @@
 use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::{
-    DenseUVPolynomial, EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain
+    DenseUVPolynomial, EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain,
 };
 #[cfg(feature = "r1cs")]
 use ark_r1cs_std::bits::boolean::Boolean;

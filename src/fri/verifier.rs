@@ -3,10 +3,10 @@ use ark_std::marker::PhantomData;
 use crate::direct::DirectLDT;
 use crate::domain::Radix2CosetDomain;
 use crate::fri::FRIParameters;
+use ark_crypto_primitives::sponge::FieldBasedCryptographicSponge;
 use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::Polynomial;
-use ark_crypto_primitives::sponge::FieldBasedCryptographicSponge;
 use ark_std::vec::Vec;
 
 /// Implements FRI verifier.
