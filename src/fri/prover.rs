@@ -2,7 +2,7 @@ use crate::domain::Radix2CosetDomain;
 use ark_ff::{batch_inversion_and_mul, PrimeField};
 use ark_r1cs_std::poly::evaluations::univariate::lagrange_interpolator::LagrangeInterpolator;
 use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 /// FRI Prover
 pub struct FRIProver<F: PrimeField> {
     _prover: PhantomData<F>,

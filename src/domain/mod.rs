@@ -11,7 +11,7 @@ use ark_r1cs_std::fields::fp::FpVar;
 use ark_r1cs_std::fields::FieldVar;
 #[cfg(feature = "r1cs")]
 use ark_relations::r1cs::SynthesisError;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
 ///

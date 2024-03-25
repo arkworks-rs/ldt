@@ -1,7 +1,7 @@
 use crate::domain::Radix2CosetDomain;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 /// R1CS constraints for FRI Verifier.
 #[cfg(feature = "r1cs")]
 pub mod constraints;

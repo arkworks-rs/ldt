@@ -7,7 +7,7 @@ use ark_crypto_primitives::sponge::FieldBasedCryptographicSponge;
 use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::Polynomial;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 
 /// Implements FRI verifier.
 pub struct FRIVerifier<F: PrimeField> {
