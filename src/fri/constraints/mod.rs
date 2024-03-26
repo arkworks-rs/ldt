@@ -2,8 +2,10 @@
 use crate::direct::constraints::DirectLDTGadget;
 use crate::domain::Radix2CosetDomain;
 use crate::fri::FRIParameters;
+use ark_crypto_primitives::sponge::constraints::CryptographicSpongeVar;
+use ark_crypto_primitives::sponge::FieldBasedCryptographicSponge;
 use ark_ff::PrimeField;
-use ark_r1cs_std::bits::boolean::Boolean;
+use ark_r1cs_std::boolean::*;
 use ark_r1cs_std::eq::EqGadget;
 use ark_r1cs_std::fields::fp::FpVar;
 use ark_r1cs_std::fields::FieldVar;
@@ -12,8 +14,6 @@ use ark_r1cs_std::poly::evaluations::univariate::EvaluationsVar;
 use ark_r1cs_std::poly::polynomial::univariate::dense::DensePolynomialVar;
 use ark_r1cs_std::prelude::CondSelectGadget;
 use ark_relations::r1cs::SynthesisError;
-use ark_sponge::constraints::CryptographicSpongeVar;
-use ark_sponge::FieldBasedCryptographicSponge;
 use ark_std::marker::PhantomData;
 use ark_std::vec::*;
 
@@ -142,7 +142,7 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
         let mut expected_next_round_eval = FpVar::zero();
 
         debug_assert_eq!(fri_parameters.localization_parameters.len(), queries.len());
-        let mut check_result = Boolean::constant(true);
+        let mut check_result: Boolean<F> = Boolean::constant(true);
         for i in 0..queries.len() {
             expected_next_round_eval = FRIVerifierGadget::expected_evaluation(
                 &queries[i],
@@ -164,7 +164,7 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
                     next_intra_coset_index,
                     &queried_evaluations[i + 1],
                 )?;
-
+                
                 check_result = check_result.and(&expected_next_round_eval.is_eq(&actual)?)?;
             }
         }
@@ -197,9 +197,10 @@ mod tests {
     use ark_poly::polynomial::univariate::DensePolynomial;
     use ark_poly::DenseUVPolynomial;
     use ark_r1cs_std::alloc::AllocVar;
-    use ark_r1cs_std::bits::uint64::UInt64;
+    use ark_r1cs_std::convert::ToBitsGadget;
     use ark_r1cs_std::fields::fp::FpVar;
     use ark_r1cs_std::poly::polynomial::univariate::dense::DensePolynomialVar;
+    use ark_r1cs_std::uint64::UInt64;
     use ark_r1cs_std::R1CSVar;
     use ark_relations::r1cs::ConstraintSystem;
     use ark_relations::*;
@@ -219,7 +220,8 @@ mod tests {
         let rand_coset_index_var =
             UInt64::new_witness(ns!(cs, "rand_coset_index"), || Ok(rand_coset_index as u64))
                 .unwrap();
-        let rand_coset_index_var_arr = rand_coset_index_var.to_bits_le()[..(1 << 6)].to_vec();
+        let rand_coset_index_var_arr =
+            rand_coset_index_var.to_bits_le().unwrap()[..(1 << 6)].to_vec();
 
         let rand_coset_index = 31;
         let (query_cosets, query_indices, domain_final) =
@@ -286,7 +288,8 @@ mod tests {
                 .to_bits_le();
 
         let (query_cosets, query_indices, domain_final) =
-            FRIVerifierGadget::prepare_query(rand_coset_index_var, &fri_parameters).unwrap();
+            FRIVerifierGadget::prepare_query(rand_coset_index_var.unwrap(), &fri_parameters)
+                .unwrap();
         let (_, query_indices_native, _) =
             FRIVerifier::prepare_query(rand_coset_index as usize, &fri_parameters);
 
