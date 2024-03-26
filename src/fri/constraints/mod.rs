@@ -164,8 +164,12 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
                     next_intra_coset_index,
                     &queried_evaluations[i + 1],
                 )?;
-                
-                check_result = check_result.and(&expected_next_round_eval.is_eq(&actual)?)?;
+
+                check_result = Boolean::<F>::kary_and(&[
+                    check_result,
+                    expected_next_round_eval.is_eq(&actual)?,
+                ])
+                .unwrap();
             }
         }
 
