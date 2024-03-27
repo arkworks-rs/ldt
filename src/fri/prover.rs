@@ -2,7 +2,7 @@ use crate::domain::Radix2CosetDomain;
 use ark_ff::{batch_inversion_and_mul, PrimeField};
 use ark_r1cs_std::poly::evaluations::univariate::lagrange_interpolator::LagrangeInterpolator;
 use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 /// FRI Prover
 pub struct FRIProver<F: PrimeField> {
     _prover: PhantomData<F>,
@@ -172,8 +172,7 @@ pub mod tests {
     use crate::direct::DirectLDT;
     use crate::domain::Radix2CosetDomain;
     use crate::fri::prover::FRIProver;
-    use ark_poly::univariate::DensePolynomial;
-    use ark_poly::DenseUVPolynomial;
+    use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 

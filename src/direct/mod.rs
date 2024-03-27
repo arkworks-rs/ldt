@@ -7,7 +7,7 @@ use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 /// Direct LDT by interpolating evaluations and truncating coefficients to low degree.
 /// /// This requires communication linear in the degree bound; use FRI for better communication complexity.
 pub struct DirectLDT<F: PrimeField> {
@@ -56,8 +56,7 @@ impl<F: PrimeField> DirectLDT<F> {
 mod tests {
     use crate::direct::{DirectLDT, Radix2CosetDomain};
     use ark_ff::UniformRand;
-    use ark_poly::univariate::DensePolynomial;
-    use ark_poly::DenseUVPolynomial;
+    use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
     use ark_std::test_rng;
     use ark_test_curves::bls12_381::Fr;
 

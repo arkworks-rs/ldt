@@ -3,15 +3,16 @@ use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly::{
     DenseUVPolynomial, EvaluationDomain, Evaluations, Polynomial, Radix2EvaluationDomain,
 };
+
 #[cfg(feature = "r1cs")]
-use ark_r1cs_std::bits::boolean::Boolean;
+use ark_r1cs_std::boolean::Boolean;
 #[cfg(feature = "r1cs")]
 use ark_r1cs_std::fields::fp::FpVar;
 #[cfg(feature = "r1cs")]
 use ark_r1cs_std::fields::FieldVar;
 #[cfg(feature = "r1cs")]
 use ark_relations::r1cs::SynthesisError;
-use ark_std::vec::Vec;
+use ark_std::vec::*;
 
 /// Given domain as `<g>`, `CosetOfDomain` represents `h<g>`
 ///
@@ -178,6 +179,9 @@ mod tests {
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::Fr;
 
+    #[cfg(feature = "r1cs")]
+    use ark_r1cs_std::convert::ToBitsGadget;
+
     use crate::domain::Radix2CosetDomain;
 
     #[cfg(feature = "r1cs")]
@@ -297,7 +301,8 @@ mod tests {
         let index = 11;
         let index_var = UInt64::new_witness(ns!(cs, "index"), || Ok(index))
             .unwrap()
-            .to_bits_le();
+            .to_bits_le()
+            .unwrap();
 
         let expected = domain_coset.element(index as usize);
         let actual = domain_coset
