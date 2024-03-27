@@ -142,7 +142,7 @@ impl<F: PrimeField> FRIVerifierGadget<F> {
         let mut expected_next_round_eval = FpVar::zero();
 
         debug_assert_eq!(fri_parameters.localization_parameters.len(), queries.len());
-        let mut check_result: Boolean<F> = Boolean::constant(true);
+        let mut check_result = Boolean::constant(true);
         for i in 0..queries.len() {
             expected_next_round_eval = FRIVerifierGadget::expected_evaluation(
                 &queries[i],
