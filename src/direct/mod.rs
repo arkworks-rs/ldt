@@ -1,88 +1,109 @@
-/// R1CS constraints for DirectLDT
-#[cfg(feature = "r1cs")]
-pub mod constraints;
-
-use crate::domain::Radix2CosetDomain;
-use ark_ff::PrimeField;
-use ark_poly::univariate::DensePolynomial;
-use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
-/// Direct LDT by interpolating evaluations and truncating coefficients to low degree.
-/// /// This requires communication linear in the degree bound; use FRI for better communication complexity.
-pub struct DirectLDT<F: PrimeField> {
-    marker: PhantomData<F>,
+
+use crate::ldt::{LDTConfig, LowDegreeTest, Prover, Verifier};
+
+// Config
+pub struct DirectConfig<F, MerkleConfig, SpongeConfig> {
+    pub ldt_config: LDTConfig,
+    _field: PhantomData<F>,
+    _merkle_config: PhantomData<MerkleConfig>,
+    _sponge_config: PhantomData<SpongeConfig>,
+}
+impl<Field, MerkleConfig, SpongeConfig> Prover<Field>
+    for DirectConfig<Field, MerkleConfig, SpongeConfig>
+{
 }
 
-/// A linear-communication protocol for testing if a function is a polynomial of certain degree.
-/// Method is described in Aurora appendix C.1.
-///
-/// For now, the domain of the function needs to support IFFT.
-impl<F: PrimeField> DirectLDT<F> {
-    /// ### Prover Side
-    ///
-    /// Generate the coefficient of the low-degree polynomial obtained by interpolating the domain evaluations.
-    /// The polynomial is trimmed to `degree_bound` when necessary.
-    pub fn generate_low_degree_coefficients(
-        domain: Radix2CosetDomain<F>,
-        codewords: Vec<F>,
-        degree_bound: usize,
-    ) -> DensePolynomial<F> {
-        let mut poly = domain.interpolate(codewords);
-        // trim higher degree: if poly is higher degree, then the soundness should fail
-        poly.coeffs.truncate(degree_bound + 1);
-        poly
-    }
+// Prover
+struct DirectProver<F, MerkleConfig, SpongeConfig> {
+    _field: PhantomData<F>,
+    _merkle_config: PhantomData<MerkleConfig>,
+    _sponge_config: PhantomData<SpongeConfig>,
+}
+impl<Field, MerkleConfig, SpongeConfig> Prover<Field>
+    for DirectProver<Field, MerkleConfig, SpongeConfig>
+{
+}
 
-    /// ### Verifier Side
-    ///
-    /// The Direct LDT Verify function tests that given a list of coefficients `a_0, a_1, ..., a_{d-1}`
-    /// an evaluation point `x`, and claimed evaluation `y`, that `y = \sum_{i =0}^{d} a_i x^i`.
-    /// This proves that the provided coefficients of a degree `d` polynomial agree with the claimed
-    /// `(evaluation_point, claimed_evaluation)` pair.
-    /// This is used to construct a low degree test for an oracle to a claimed polynomials evaluations over a domain.
-    /// By sampling enough (domain_element, claimed_evaluation) pairs from the oracle, and testing them
-    /// via this method, you become convinced w.h.p. that the oracle is sufficiently close to the claimed coefficients list.
-    pub fn verify(
-        evaluation_point: F,
-        claimed_evaluation: F,
-        bounded_coefficients: &DensePolynomial<F>,
-    ) -> bool {
-        return bounded_coefficients.evaluate(&evaluation_point) == claimed_evaluation;
+// Verifier
+struct DirectVerifier<F, MerkleConfig, SpongeConfig> {
+    _field: PhantomData<F>,
+    _merkle_config: PhantomData<MerkleConfig>,
+    _sponge_config: PhantomData<SpongeConfig>,
+}
+impl<Field, MerkleConfig, SpongeConfig> Verifier<Field>
+    for DirectVerifier<Field, MerkleConfig, SpongeConfig>
+{
+}
+
+// LDT
+struct DirectLDT<F, MerkleConfig, SpongeConfig> {
+    _field: PhantomData<F>,
+    _merkle_config: PhantomData<MerkleConfig>,
+    _sponge_config: PhantomData<SpongeConfig>,
+}
+impl<F, MerkleConfig, SpongeConfig> LowDegreeTest<F>
+    for DirectLDT<F, MerkleConfig, SpongeConfig>
+{
+    type Config = DirectConfig<F, MerkleConfig, SpongeConfig>;
+    type Prover = DirectProver<F, MerkleConfig, SpongeConfig>;
+    type Verifier = DirectVerifier<F, MerkleConfig, SpongeConfig>;
+    fn config(ldt_config: LDTConfig) -> Self::Config {
+        DirectConfig {
+            ldt_config,
+            _field: PhantomData,
+            _merkle_config: PhantomData,
+            _sponge_config: PhantomData
+        }
+    }
+    fn prover(config: Self::Config) -> Self::Prover {
+        Self::Prover {
+            _field: PhantomData,
+            _merkle_config: PhantomData,
+            _sponge_config: PhantomData
+        }
+    }
+    fn verifier(config: Self::Config) -> Self::Verifier {
+        Self::Verifier {
+            _field: PhantomData,
+            _merkle_config: PhantomData,
+            _sponge_config: PhantomData
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::direct::{DirectLDT, Radix2CosetDomain};
-    use ark_ff::UniformRand;
+    // use ark_crypto_primitives::{
+    //     merkle_tree::Config as MerkleConfig,
+    //     sponge::CryptographicSponge as Sponge
+    // };
+    // use ark_ff::FftField;
+    use crate::direct::{DirectProver, DirectVerifier, DirectLDT};
+    use crate::ldt::{LDTConfig, LowDegreeTest};
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::DenseUVPolynomial;
     use ark_std::test_rng;
-    use ark_test_curves::bls12_381::Fr;
+    use ark_bn254::Fr as BN254;
 
     #[test]
     fn test_direct_ldt() {
-        let degree = 51;
-
+        // config
+        let degree = 22;
+        let rate = 4;
+        let config = DirectLDT::config(LDTConfig::new(degree, rate));
+        
+        // witness
         let mut rng = test_rng();
-        let poly = DensePolynomial::<Fr>::rand(degree, &mut rng);
-        let domain_coset = Radix2CosetDomain::new_radix2_coset(52, Fr::rand(&mut rng));
-        let evaluations = domain_coset.evaluate(&poly);
+        let witness_polynomial = DensePolynomial::<BN254>::rand(degree, &mut rng);
 
-        let low_degree_poly = DirectLDT::generate_low_degree_coefficients(
-            domain_coset.clone(),
-            evaluations.to_vec(),
-            degree,
-        );
+        // commit and prove
+        let prover = DirectLDT::prover(config);
+        let (commitment, witness) = prover.commit(witness_polynomial);
+        let proof = prover.prove(witness);
 
-        let sampled_element = domain_coset.element(15);
-        let sampled_evaluation = evaluations[15];
-
-        assert!(DirectLDT::verify(
-            sampled_element,
-            sampled_evaluation,
-            &low_degree_poly
-        ))
+        // verify
+        let verifier = DirectLDT::verifier(config);
+        verifier.verify(commitment, proof);
     }
 }
