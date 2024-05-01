@@ -9,4 +9,14 @@ ark-crypto-primitives = { version="^0.4.0", features = ["merkle_tree", "sponge"]
 ark-ff = { version = "^0.4.2", default-features = false }
 ark-poly = { version = "0.4.2" }
 ark-std = { version="^0.4.0" }
+ark-serialize = { version = "0.4" }
+ark-test-curves = { version = "0.4", features = [ "bls12_381_curve" ] }
+blake2 = { version = "0.10" }
+blake3 = { version = "1.5.0" }
+lazy_static = { version = "1.4" }
+poseidon-paramgen = { version  = "0.4" }
+rand = { version = "0.8" }
+sha3 = { version = "0.10" }
+
+[dev-dependencies]
 ark-bn254 = { version="^0.4.0" }
