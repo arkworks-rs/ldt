@@ -1,215 +1,183 @@
-use ark_crypto_primitives::{merkle_tree::{Config, MerkleTree, Path}, sponge::poseidon::PoseidonConfig};
+use ark_crypto_primitives::{
+    merkle_tree::{Config as MerkleConfig, LeafParam, MerkleTree, Path, TwoToOneParam},
+    sponge::CryptographicSponge,
+};
 use ark_ff::FftField;
-use ark_poly::{EvaluationDomain, univariate::DensePolynomial};
-use ark_std::{marker::PhantomData, test_rng};
+use ark_poly::univariate::DensePolynomial;
+use ark_std::marker::PhantomData;
 
-use crate::{crypto::merkle_tree, domain::Domain, ldt::{LDTConfig, LowDegreeTest, Prover, Verifier}};
+use crate::{domain::Domain, utils::squeeze_integer};
 
-pub struct DirectProof<F: FftField, MerkleConfig: Config> {
+pub struct DirectConfig<M: MerkleConfig, S: CryptographicSponge> {
+    pub degree: usize,
+    pub num_queries: usize,
+    pub merkle_leaf_hash_param: LeafParam<M>,
+    pub merkle_two_to_one_param: TwoToOneParam<M>,
+    pub sponge_config: S::Config,
+}
+
+pub struct DirectProof<F: FftField, M: MerkleConfig> {
     polynomial: Vec<F>,
-    openings: Vec<Path<MerkleConfig>>
+    openings: Vec<Path<M>>,
 }
-
-// Config
-pub struct DirectConfig<F: FftField, MerkleConfig: Config, SpongeConfig> {
-    pub ldt_config: LDTConfig<F>,
-    pub log_root_of_unity: usize,
-    _field: PhantomData<F>,
-    _merkle_config: PhantomData<MerkleConfig>,
-    _sponge_config: PhantomData<SpongeConfig>,
-}
-impl<F: FftField, MerkleConfig: Config, SpongeConfig> DirectConfig<F, MerkleConfig, SpongeConfig> {}
 
 // Prover
-struct DirectProver<F: FftField, MerkleConfig: Config, SpongeConfig> {
-    config: DirectConfig<F, MerkleConfig, SpongeConfig>,
+struct DirectProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+    config: DirectConfig<M, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<MerkleConfig>,
-    _sponge_config: PhantomData<SpongeConfig>,
+    _merkle_config: PhantomData<M>,
+    _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + ark_ff::PrimeField + ark_crypto_primitives::sponge::Absorb, MerkleConfig: Config, SpongeConfig> Prover<F> for DirectProver<F, MerkleConfig, SpongeConfig> {
-    fn commit(&self, witness_polynomial: DensePolynomial<F>) { // TODO -> MerkleConfig::InnerDigest {
-        // config
-        let degree = 22;
-        let log_root_of_unity = 0;
-        let num_queries = 8;
-        let mut rng = test_rng();
-        let domain = Domain::<F>::new(degree, log_root_of_unity).unwrap();
-        let evals: Vec<Vec<F>> = witness_polynomial
+impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> DirectProver<F, M, S> {
+    fn new(config: DirectConfig<M, S>) -> Self {
+        DirectProver {
+            config,
+            _field: PhantomData::<F>,
+            _merkle_config: PhantomData::<M>,
+            _sponge_config: PhantomData::<S>,
+        }
+    }
+    fn commit(&self, polynomial: DensePolynomial<F>) -> (Vec<Vec<F>>, MerkleTree<M>) {
+        // get evaluations over a domain
+        let domain = Domain::<F>::new(self.config.degree, 0).unwrap();
+        let evals: Vec<Vec<F>> = polynomial
             .evaluate_over_domain_by_ref(domain.backing_domain)
             .evals
             .iter()
             .map(|f| -> Vec<F> { vec![*f] })
             .collect();
-        // commit
-        let (leaf_hash_params, two_to_one_params) = merkle_tree::poseidon::default_config(&mut rng, 2);
-        let mt = MerkleTree::<MerkleConfig>::new(
-            &leaf_hash_params,
-            &two_to_one_params,
-            &evals,
+        // generate the committment
+        let mt = MerkleTree::<M>::new(
+            &self.config.merkle_leaf_hash_param,
+            &self.config.merkle_two_to_one_param,
+            evals.clone(),
         )
         .unwrap();
-        let commitment = mt.root(); // TODO
+        (evals, mt)
     }
-    fn prove(&self, witness_polynomial: DensePolynomial<F>) {
-        // let domain =
-        //     Domain::<F>::new(self.config.ldt_config.degree, self.config.log_root_of_unity).unwrap();
-        // let evals = domain.fft(&witness_polynomial);
-        // let mut rng = test_rng(); // TODO: where should this randomness live? Config?
-        // let (leaf_hash_params, two_to_one_params) =
-        //     MerkleConfig::default_config(&mut rng, 2);
-        // let merkle_tree: MerkleTree::<MerkleConfig> =
-        // MerkleTree::<MerkleConfig>::new(&leaf_hash_params, &two_to_one_params, &evals).unwrap();
-        // let commitment = merkle_tree.root();
+    fn prove(&self, mt: MerkleTree<M>) -> Vec<Path<M>> {
+        // absorb committment
+        let commitment: M::InnerDigest = mt.root();
+        let mut sponge = S::new(&self.config.sponge_config);
+        sponge.absorb(&commitment);
+        // squeeze out queries
+        let mut queries: Vec<usize> = Vec::with_capacity(self.config.num_queries);
+        for _ in 0..self.config.num_queries {
+            queries.push(squeeze_integer(&mut sponge, 32));
+        }
+        // get the openings
+        let mut openings: Vec<Path<M>> = Vec::with_capacity(self.config.num_queries);
+        for query in queries {
+            openings.push(mt.generate_proof(query).unwrap());
+        }
+        openings
     }
 }
 
 // Verifier
-struct DirectVerifier<F, MerkleConfig: Config, SpongeConfig> {
+struct DirectVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+    config: DirectConfig<M, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<MerkleConfig>,
-    _sponge_config: PhantomData<SpongeConfig>,
+    _merkle_config: PhantomData<M>,
+    _sponge_config: PhantomData<S>,
 }
-impl<F: FftField, MerkleConfig: Config, SpongeConfig> Verifier<F>
-    for DirectVerifier<F, MerkleConfig, SpongeConfig>
-{
-}
-
-// LDT
-struct DirectLDT<F, MerkleConfig, SpongeConfig> {
-    _field: PhantomData<F>,
-    _merkle_config: PhantomData<MerkleConfig>,
-    _sponge_config: PhantomData<SpongeConfig>,
-}
-impl<F: FftField, MerkleConfig: Config, SpongeConfig> LowDegreeTest<F> for DirectLDT<F, MerkleConfig, SpongeConfig> {
-    type Proof = DirectProof<F, MerkleConfig>;
-    type Config = DirectConfig<F, MerkleConfig, SpongeConfig>;
-    type Prover = DirectProver<F, MerkleConfig, SpongeConfig>;
-    type Verifier = DirectVerifier<F, MerkleConfig, SpongeConfig>;
-    fn config(ldt_config: LDTConfig<F>) -> Self::Config {
-        DirectConfig {
-            ldt_config,
-            log_root_of_unity: 0, // TODO
-            _field: PhantomData,
-            _merkle_config: PhantomData,
-            _sponge_config: PhantomData,
-        }
-    }
-    fn prover(config: Self::Config) -> Self::Prover {
-        Self::Prover {
+impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> DirectVerifier<F, M, S> {
+    fn new(config: DirectConfig<M, S>) -> Self {
+        DirectVerifier {
             config,
-            _field: PhantomData,
-            _merkle_config: PhantomData,
-            _sponge_config: PhantomData,
+            _field: PhantomData::<F>,
+            _merkle_config: PhantomData::<M>,
+            _sponge_config: PhantomData::<S>,
         }
     }
-    fn verifier(config: Self::Config) -> Self::Verifier {
-        Self::Verifier {
-            _field: PhantomData,
-            _merkle_config: PhantomData,
-            _sponge_config: PhantomData,
+    fn verify(&self, evals: Vec<Vec<F>>, mt: MerkleTree<M>, openings: Vec<Path<M>>) -> bool {
+        // derive queries from committment to validate
+        let commitment: M::InnerDigest = mt.root();
+        let mut sponge = S::new(&self.config.sponge_config);
+        sponge.absorb(&commitment);
+        let committment: M::InnerDigest = mt.root();
+        let mut sponge = S::new(&self.config.sponge_config);
+        sponge.absorb(&commitment);
+        // squeeze out queries
+        let mut queries: Vec<usize> = Vec::with_capacity(self.config.num_queries);
+        for i in 0_usize..self.config.num_queries {
+            let query = squeeze_integer(&mut sponge, 32);
+            // is correct query index
+            if openings[i].leaf_index != query {
+                return false;
+            }
+            // is correct path
+            if openings[i]
+                .verify(
+                    &self.config.merkle_leaf_hash_param,
+                    &self.config.merkle_two_to_one_param,
+                    &commitment,
+                    evals[query].clone(),
+                )
+                .unwrap()
+                != true
+            {
+                return false;
+            }
         }
+        true
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto;
-    use crate::crypto::merkle_tree::blake3::{Blake3LeafHash, Blake3TwoToOneCRHScheme};
-    use crate::crypto::{fields::Field256, fs, merkle_tree};
-    use crate::direct::{DirectConfig, DirectLDT, DirectProver, DirectVerifier};
-    use crate::domain::Domain;
-    use crate::ldt::{LDTConfig, LowDegreeTest};
-    use crate::utils::squeeze_integer;
-    use ark_crypto_primitives::merkle_tree::{MerkleTree, Path};
-    use ark_crypto_primitives::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
-    use ark_crypto_primitives::sponge::CryptographicSponge;
+    use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::DenseUVPolynomial;
-    use ark_poly::EvaluationDomain;
     use ark_std::test_rng;
+
+    use crate::{
+        crypto::{fields::Field256, fs, merkle_tree},
+        direct::DirectVerifier,
+    };
+
+    use super::{DirectConfig, DirectProver};
+
+    fn generate_test_polynomial<F: Field>(degree: usize) -> DensePolynomial<F> {
+        let mut rng = test_rng();
+        DensePolynomial::<F>::rand(degree, &mut rng)
+    }
 
     #[test]
     fn test_direct_ldt() {
         // config
-        let degree = 22;
-        // let rate = 4;
-        let log_root_of_unity = 0;
-        let num_queries = 8;
+        let mut rng = test_rng();
+        let mt_config = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
+        let fs_config = fs::poseidon::default_fs_config::<Field256>();
+        let config = DirectConfig {
+            degree: 22,
+            num_queries: 8,
+            merkle_leaf_hash_param: mt_config.0,
+            merkle_two_to_one_param: mt_config.1,
+            sponge_config: fs_config,
+        };
 
         // witness
-        let mut rng = test_rng();
-        let witness_polynomial = DensePolynomial::<Field256>::rand(degree, &mut rng);
-        let domain = Domain::<Field256>::new(degree, log_root_of_unity).unwrap();
-        let evals: Vec<Vec<Field256>> = witness_polynomial
-            .evaluate_over_domain_by_ref(domain.backing_domain)
-            .evals
-            .iter()
-            .map(|f| -> Vec<Field256> { vec![*f] })
-            .collect();
+        let polynomial = generate_test_polynomial(config.degree);
 
         // commit
-        let (leaf_hash_params, two_to_one_params): (
-            PoseidonConfig<Field256>,
-            PoseidonConfig<Field256>,
-        ) = merkle_tree::poseidon::default_config(&mut rng, 2);
-        let mt = MerkleTree::<merkle_tree::poseidon::MerkleTreeParams<Field256>>::new(
-            &leaf_hash_params,
-            &two_to_one_params,
-            &evals,
-        )
-        .unwrap();
-        let commitment = mt.root();
+        let prover: DirectProver<
+            Field256,
+            merkle_tree::poseidon::MerkleTreeParams<Field256>,
+            PoseidonSponge<Field256>,
+        > = DirectProver::new(config);
+        let (evals, mt) = prover.commit(polynomial);
 
         // prove
-        let mut fs1: PoseidonSponge<Field256> = fs::poseidon::Sponge::new(&leaf_hash_params);
-        fs1.absorb(&commitment);
-        let mut queries1: Vec<usize> = Vec::with_capacity(num_queries);
-        for _ in 0..num_queries {
-            queries1.push(squeeze_integer(&mut fs1, 32));
-        }
-        let mut auth: Vec<Path<merkle_tree::poseidon::MerkleTreeParams<Field256>>> =
-            Vec::with_capacity(num_queries);
-        for query in queries1 {
-            auth.push(mt.generate_proof(query).unwrap());
-        }
+        let openings = prover.prove(mt);
 
         // verify
-        let mut fs2: PoseidonSponge<Field256> = fs::poseidon::Sponge::new(&leaf_hash_params);
-        fs2.absorb(&commitment);
-        for i in 0..num_queries {
-            let query = squeeze_integer(&mut fs2, 32);
-            // is correct query index
-            assert_eq!(auth[i].leaf_index, query);
-            // is correct path
-            assert_eq!(
-                auth[i]
-                    .verify(
-                        &leaf_hash_params,
-                        &two_to_one_params,
-                        &commitment,
-                        evals[query].clone()
-                    )
-                    .unwrap(),
-                true
-            );
-        }
-
-        // SKELETON
-        // let config = DirectLDT::config(LDTConfig::new(degree, rate));
-
-        // // witness
-        // let mut rng = test_rng();
-        // let witness_polynomial = DensePolynomial::<BN254>::rand(degree, &mut rng);
-
-        // // commit and prove
-        // let prover = DirectLDT::prover(config);
-        // let (commitment, witness) = prover.commit(witness_polynomial);
-        // let proof = prover.prove(witness);
-
-        // // verify
-        // let verifier = DirectLDT::verifier(config);
-        // verifier.verify(commitment, proof);
+        let verifier: DirectVerifier<
+            Field256,
+            merkle_tree::poseidon::MerkleTreeParams<Field256>,
+            PoseidonSponge<Field256>,
+        > = DirectVerifier::new(config);
+        assert_eq!(verifier.verify(evals, mt, openings), true);
     }
 }
