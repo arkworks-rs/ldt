@@ -17,6 +17,7 @@ impl<F: FftField> LDTConfig<F> {
 // LowDegreeTest
 pub trait Config<F: FftField> {}
 pub trait Prover<F: FftField> {
+    fn commit(&self, witness_polynomial: DensePolynomial<F>);
     fn prove(&self, witness_polynomial: DensePolynomial<F>);
 }
 pub trait Verifier<F: FftField> {}
