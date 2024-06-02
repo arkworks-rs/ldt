@@ -13,7 +13,7 @@ mod tests {
     use crate::{
         commitment::Commitment,
         crypto::{fields::Field256, fs, merkle_tree},
-        direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},
+        fri::{prover::FRIProver, verifier::FRIVerifier, config::FRIConfig},
         ldt::{Prover, Verifier},
     };
 
@@ -22,38 +22,47 @@ mod tests {
     type TestSpongeConfig = PoseidonSponge<Field256>;
 
     #[test]
-    fn test_direct_ldt() {
+    fn test_fri_ldt() {
         // get ready
         let mut rng = test_rng();
         let mt_config = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
         let fs_config = fs::poseidon::default_fs_config::<Field256>();
-        let config: DirectConfig<TestMerkleConfig, TestSpongeConfig> = DirectConfig::new(
-            22,
+        let config: FRIConfig<TestMerkleConfig, TestSpongeConfig> = FRIConfig::new(
+            2,
             8,
+            4,
             mt_config.0.clone(),
             mt_config.1.clone(),
+            8,
+            4,
             fs_config.clone(),
+            22,
+            8,
         );
 
         // generate random witness
-        let polynomial = DensePolynomial::<Field256>::rand(config.degree, &mut rng);
+        let polynomial = DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng);
 
         // commit
-        let prover: DirectProver<TestField, TestMerkleConfig, TestSpongeConfig> = DirectProver::new(config.clone());
-        let commitment = Commitment::<TestField, TestMerkleConfig>::new(
-            config.degree.clone(),
-            0,
-            1,
+        let commitment = Commitment::<Field256, TestMerkleConfig>::new(
+            config.starting_degree,
+            config.starting_rate,
+            config.folding_factor,
             config.merkle_leaf_hash_param.clone(),
             config.merkle_two_to_one_param.clone(),
             vec![polynomial],
         );
 
         // prove
-        let direct_proof = prover.prove(&commitment);
+        let prover: FRIProver<TestField, TestMerkleConfig, TestSpongeConfig> = FRIProver::new(config.clone());
+        let fri_proof = prover.prove(&commitment);
 
         // verify
-        let verifier: DirectVerifier<TestField, TestMerkleConfig, TestSpongeConfig> = DirectVerifier::new(config);
-        assert_eq!(verifier.verify(&commitment, &direct_proof), true);
+        let verifier: FRIVerifier<
+            Field256,
+            merkle_tree::poseidon::MerkleTreeParams<Field256>,
+            PoseidonSponge<Field256>,
+        > = FRIVerifier::new(config);
+        assert_eq!(verifier.verify(&commitment, &fri_proof), true);
     }
 }

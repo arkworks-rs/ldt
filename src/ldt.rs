@@ -1,22 +1,22 @@
 use ark_ff::FftField;
-use ark_poly::univariate::DensePolynomial;
-
 pub trait Prover<F: FftField> {
     type Config;
     type Commitment;
     type Proof;
     fn new(config: Self::Config) -> Self;
-    fn commit(&self, polynomial: DensePolynomial<F>) -> Self::Commitment;
-    fn prove(&self, commitment: Self::Commitment) -> Self::Proof;
+    fn prove(&self, commitment: &Self::Commitment) -> Self::Proof;
 }
 pub trait Verifier<F: FftField> {
-    
+    type Config;
+    type Commitment;
+    type Proof;
+    fn new(config: Self::Config) -> Self;
+    fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool;
 }
 pub trait LowDegreeTest<F: FftField> {
-    type Proof;
     type Config;
+    type Proof;
     type Prover;
     type Verifier;
-    fn prover(config: Self::Config) -> Self::Prover;
-    fn verifier(config: Self::Config) -> Self::Verifier;
+    fn new(config: Self::Config) -> (Self::Prover, Self::Verifier);
 }
