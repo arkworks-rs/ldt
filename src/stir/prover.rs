@@ -18,13 +18,13 @@ use crate::{
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
-pub struct RoundWitness<F: FftField, M: MerkleConfig> {
+pub struct WitnessExtended<F: FftField, M: MerkleConfig> {
     pub domain: Domain<F>,
-    pub folding_randomness: F,
     pub polynomial: DensePolynomial<F>,
-    pub p_evaluations: Vec<Vec<F>>,
-    pub p_commitment: MerkleTree<M>,
-    pub round_num: usize,
+    pub merkle_tree: MerkleTree<M>,
+    pub folded_evals: Vec<Vec<F>>,
+    pub num_round: usize,
+    pub folding_randomness: F,
 }
 pub struct STIRProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
     config: STIRConfig<M, S>,
@@ -51,65 +51,64 @@ where
         }
     }
     fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
-        // TODO: fix this
+        // TODO: Fix later
         // assert!(witness.polynomial.degree() < self.parameters.starting_degree);
 
         let mut sponge = S::new(&self.config.sponge_config);
+        // TODO: Add parameters to FS
         sponge.absorb(&commitment.p_commitment.root());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
-        let mut round_witness: RoundWitness<F, M> = RoundWitness {
+        let mut witness = WitnessExtended {
             domain: commitment.domain.clone(),
             polynomial: commitment.polynomials[0].clone(),
-            p_commitment: commitment.p_commitment.clone(),
-            p_evaluations: commitment.p_evaluations.clone(),
-            round_num: 0,
+            merkle_tree: commitment.p_commitment.clone(),
+            folded_evals: commitment.p_evaluations.clone(),
+            num_round: 0,
             folding_randomness,
         };
 
         let mut round_proofs = vec![];
         for _ in 0..self.config.num_rounds {
-            let (new_witness, round_proof) = self.compute_round(&mut sponge, &round_witness);
-            round_witness = new_witness;
+            let (new_witness, round_proof) = self.compute_round(&mut sponge, &witness);
+            witness = new_witness;
             round_proofs.push(round_proof);
         }
 
         let final_polynomial = poly_utils::folding::poly_fold(
-            &round_witness.polynomial,
+            &witness.polynomial,
             self.config.folding_factor,
-            round_witness.folding_randomness,
+            witness.folding_randomness,
         );
 
         let final_repetitions = self.config.repetitions[self.config.num_rounds];
-        let scaling_factor = round_witness.domain.size() / self.config.folding_factor;
-        let final_randomness_indexes =
-            dedup((0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)));
+        let scaling_factor = witness.domain.size() / self.config.folding_factor;
+        let final_randomness_indexes = dedup(
+            (0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)),
+        );
 
         let queries_to_final_ans: Vec<_> = final_randomness_indexes
             .iter()
-            .map(|index| round_witness.p_evaluations[*index].clone())
+            .map(|index| witness.folded_evals[*index].clone())
             .collect();
 
         // TODO `generate_multi_proof`` doesn't exist w/ my version of ark_crypto_primitives
-        // let queries_to_final_proof = round_witness
-        //     .p_commitment
+        // let queries_to_final_proof = witness
+        //     .merkle_tree
         //     .generate_multi_proof(final_randomness_indexes)
         //     .unwrap();
-        let mut queries_to_final_proof: Vec<Path<M>> =
-            Vec::with_capacity(final_randomness_indexes.len());
+        let mut queries_to_final_proof: Vec<Path<M>> = Vec::with_capacity(final_randomness_indexes.len());
         for query in final_randomness_indexes.clone() {
-            queries_to_final_proof.push(round_witness.p_commitment.generate_proof(query).unwrap());
+            queries_to_final_proof.push(witness.merkle_tree.generate_proof(query).unwrap());
         }
 
-        let queries_to_final: (Vec<Vec<F>>, Vec<Path<M>>) =
-            (queries_to_final_ans, queries_to_final_proof);
+        let queries_to_final = (queries_to_final_ans, queries_to_final_proof);
 
         let pow_nonce = proof_of_work(
             &mut sponge,
             self.config.proof_of_work_bits[self.config.num_rounds],
         );
 
-        // TODO: where is the commitment?
         Self::Proof {
             round_proofs,
             polynomial: final_polynomial,
@@ -127,8 +126,8 @@ where
     fn compute_round(
         &self,
         sponge: &mut impl CryptographicSponge,
-        witness: &RoundWitness<F, M>,
-    ) -> (RoundWitness<F, M>, STIRRoundProof<F, M>) {
+        witness: &WitnessExtended<F, M>,
+    ) -> (WitnessExtended<F, M>, STIRRoundProof<F, M>) {
         let g_poly = poly_utils::folding::poly_fold(
             &witness.polynomial,
             self.config.folding_factor,
@@ -141,7 +140,8 @@ where
             .evaluate_over_domain_by_ref(g_domain.backing_domain)
             .evals;
 
-        let g_folded_evaluations = stack_evaluations(g_evaluations, self.config.folding_factor);
+        let g_folded_evaluations =
+            stack_evaluations(g_evaluations, self.config.folding_factor);
         let g_merkle = MerkleTree::<M>::new(
             &self.config.merkle_leaf_hash_param,
             &self.config.merkle_two_to_one_param,
@@ -167,11 +167,12 @@ where
 
         // Sample the indexes of L^k that we are going to use for querying the previous Merkle tree
         let scaling_factor = witness.domain.size() / self.config.folding_factor;
-        let num_repetitions = self.config.repetitions[witness.round_num];
-        let stir_randomness_indexes =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
+        let num_repetitions = self.config.repetitions[witness.num_round];
+        let stir_randomness_indexes = dedup(
+            (0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)),
+        );
 
-        let pow_nonce = proof_of_work(sponge, self.config.proof_of_work_bits[witness.round_num]);
+        let pow_nonce = proof_of_work(sponge, self.config.proof_of_work_bits[witness.num_round]);
 
         // Not used
         let _shake_randomness: F = sponge.squeeze_field_elements(1)[0];
@@ -180,18 +181,17 @@ where
         // corresponding evals)
         let queries_to_prev_ans: Vec<_> = stir_randomness_indexes
             .iter()
-            .map(|&index| witness.p_evaluations[index].clone())
+            .map(|&index| witness.folded_evals[index].clone())
             .collect();
 
         // TODO `generate_multi_proof`` doesn't exist w/ my version of ark_crypto_primitives
         // let queries_to_prev_proof = witness
-        //     .p_commitment
+        //     .merkle_tree
         //     .generate_multi_proof(stir_randomness_indexes.clone())
         //     .unwrap();
-        let mut queries_to_prev_proof: Vec<Path<M>> =
-            Vec::with_capacity(stir_randomness_indexes.len());
+        let mut queries_to_prev_proof: Vec<Path<M>> = Vec::with_capacity(stir_randomness_indexes.len());
         for query in stir_randomness_indexes.clone() {
-            queries_to_prev_proof.push(witness.p_commitment.generate_proof(query).unwrap());
+            queries_to_prev_proof.push(witness.merkle_tree.generate_proof(query).unwrap());
         }
         let queries_to_prev = (queries_to_prev_ans, queries_to_prev_proof);
 
@@ -241,12 +241,12 @@ where
         let witness_polynomial = &quotient_polynomial * &scaling_polynomial;
 
         (
-            RoundWitness {
+            WitnessExtended {
                 domain: g_domain,
                 polynomial: witness_polynomial,
-                p_commitment: g_merkle,
-                p_evaluations: g_folded_evaluations,
-                round_num: witness.round_num + 1,
+                merkle_tree: g_merkle,
+                folded_evals: g_folded_evaluations,
+                num_round: witness.num_round + 1,
                 folding_randomness,
             },
             STIRRoundProof {

@@ -101,54 +101,53 @@ where
         }
     }
     fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool {
-        // TODO: fix this
+        // TODO fix this
         // if proof.final_polynomial.degree() + 1 > self.parameters.stopping_degree {
         //     return false;
         // }
 
         // First we verify all Merkle paths
-        println!("HERE 1");
-        let current_root = commitment.p_commitment.root().clone();
-        for round_num in 0..proof.round_proofs.len() {
-            let (answers, proofs) = &proof.round_proofs[round_num].queries_to_prev;
-            for (i, proof) in proofs.iter().enumerate() {
-                let answer = answers[i].clone();
-                if !proof
-                    .verify(
-                        &self.config.merkle_leaf_hash_param,
-                        &self.config.merkle_two_to_one_param,
-                        &current_root,
-                        answer,
-                    )
-                    .unwrap()
-                {
-                    return false;
-                }
-            }
-        }
-        println!("HERE 2");
-        let (final_answers, final_proofs) = &proof.queries_to_final;
-        for (i, final_proof) in final_proofs.iter().enumerate() {
-            let answer = final_answers[i].clone();
-            if !final_proof
-                .verify(
-                    &self.config.merkle_leaf_hash_param,
-                    &self.config.merkle_two_to_one_param,
-                    &current_root,
-                    answer,
-                )
-                .unwrap()
-            {
-                return false;
-            }
-        }
+        // let mut current_root = commitment.p_commitment.root();
+        // for round_proof in &proof.round_proofs {
+        //     if !round_proof
+        //         .queries_to_prev
+        //         .1
+        //         .verify(
+        //             &self.config.merkle_leaf_hash_param,
+        //             &self.config.merkle_two_to_one_param,
+        //             &current_root,
+        //             round_proof.queries_to_prev.0.clone(),
+        //         )
+        //         .unwrap()
+        //     {
+        //         return false;
+        //     }
+        //     current_root = round_proof.g_root.clone();
+        // }
+        // if !proof
+        //     .queries_to_final
+        //     .1
+        //     .verify(
+        //         &self.config.merkle_leaf_hash_param,
+        //         &self.config.merkle_two_to_one_param,
+        //         &current_root,
+        //         proof.queries_to_final.0.clone(),
+        //     )
+        //     .unwrap()
+        // {
+        //     return false;
+        // }
+
         // Now, we recompute
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&commitment.p_commitment.root());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
-        let domain =
-            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
+        let domain = Domain::<F>::new(
+            self.config.starting_degree,
+            self.config.starting_rate,
+        )
+        .unwrap();
 
         let domain_gen = domain.element(1);
         let domain_size = domain.size();
@@ -174,8 +173,9 @@ where
         // Now, we sample the last points that we want to check consisntency at
         let final_repetitions = self.config.repetitions[self.config.num_rounds];
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
-        let final_randomness_indexes =
-            dedup((0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)));
+        let final_randomness_indexes = dedup(
+            (0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)),
+        );
 
         if !proof_of_work_verify(
             &mut sponge,
@@ -312,7 +312,8 @@ where
                             group_gen_inv: generator_inv,
                             offset: *coset_offset,
                             offset_inv: *coset_offset_inv,
-                            offset_pow_size: coset_offset.pow([self.config.folding_factor as u64]),
+                            offset_pow_size: coset_offset
+                                .pow([self.config.folding_factor as u64]),
                         };
 
                         virtual_function
@@ -431,8 +432,9 @@ where
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
 
         let num_repetitions = self.config.repetitions[verification_state.num_round];
-        let stir_randomness_indexes =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
+        let stir_randomness_indexes = dedup(
+            (0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)),
+        );
 
         // PoW verification
         if !proof_of_work_verify(

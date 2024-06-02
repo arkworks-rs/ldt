@@ -145,7 +145,6 @@ where
                 .iter()
                 .map(|&index| folded_evals[round][index].clone())
                 .collect();
-            // TODO `generate_multi_proof`` doesn't exist w/ my version of ark_crypto_primitives
             // let queries_to_prev_proof = merkle_trees[round]
             //     .generate_multi_proof(query_indexes.clone())
             //     .unwrap();
