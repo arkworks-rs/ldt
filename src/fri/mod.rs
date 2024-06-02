@@ -1,4 +1,5 @@
 pub mod config;
+pub mod ldt;
 pub mod proof;
 pub mod prover;
 pub mod verifier;
@@ -13,8 +14,8 @@ mod tests {
     use crate::{
         commitment::Commitment,
         crypto::{fields::Field256, fs, merkle_tree},
-        fri::{prover::FRIProver, verifier::FRIVerifier, config::FRIConfig},
-        ldt::{Prover, Verifier},
+        fri::{config::FRIConfig, ldt::FRI},
+        ldt::{LowDegreeTest, Prover, Verifier},
     };
 
     type TestField = Field256;
@@ -39,6 +40,8 @@ mod tests {
             22,
             8,
         );
+        let (prover, verifier) =
+            FRI::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
 
         // generate random witness
         let polynomial = DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng);
@@ -54,15 +57,9 @@ mod tests {
         );
 
         // prove
-        let prover: FRIProver<TestField, TestMerkleConfig, TestSpongeConfig> = FRIProver::new(config.clone());
         let fri_proof = prover.prove(&commitment);
 
         // verify
-        let verifier: FRIVerifier<
-            Field256,
-            merkle_tree::poseidon::MerkleTreeParams<Field256>,
-            PoseidonSponge<Field256>,
-        > = FRIVerifier::new(config);
         assert_eq!(verifier.verify(&commitment, &fri_proof), true);
     }
 }

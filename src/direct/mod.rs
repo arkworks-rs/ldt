@@ -1,4 +1,5 @@
 pub mod config;
+pub mod ldt;
 pub mod proof;
 pub mod prover;
 pub mod verifier;
@@ -13,8 +14,8 @@ mod tests {
     use crate::{
         commitment::Commitment,
         crypto::{fields::Field256, fs, merkle_tree},
-        direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},
-        ldt::{Prover, Verifier},
+        direct::{config::DirectConfig, ldt::DirectLDT},
+        ldt::{LowDegreeTest, Prover, Verifier},
     };
 
     type TestField = Field256;
@@ -34,12 +35,13 @@ mod tests {
             mt_config.1.clone(),
             fs_config.clone(),
         );
+        let (prover, verifier) =
+            DirectLDT::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
 
         // generate random witness
         let polynomial = DensePolynomial::<Field256>::rand(config.degree, &mut rng);
 
         // commit
-        let prover: DirectProver<TestField, TestMerkleConfig, TestSpongeConfig> = DirectProver::new(config.clone());
         let commitment = Commitment::<TestField, TestMerkleConfig>::new(
             config.degree.clone(),
             0,
@@ -53,7 +55,6 @@ mod tests {
         let direct_proof = prover.prove(&commitment);
 
         // verify
-        let verifier: DirectVerifier<TestField, TestMerkleConfig, TestSpongeConfig> = DirectVerifier::new(config);
         assert_eq!(verifier.verify(&commitment, &direct_proof), true);
     }
 }
