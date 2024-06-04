@@ -107,36 +107,40 @@ where
         // }
 
         // First we verify all Merkle paths
-        // let mut current_root = commitment.p_commitment.root();
-        // for round_proof in &proof.round_proofs {
-        //     if !round_proof
-        //         .queries_to_prev
-        //         .1
-        //         .verify(
-        //             &self.config.merkle_leaf_hash_param,
-        //             &self.config.merkle_two_to_one_param,
-        //             &current_root,
-        //             round_proof.queries_to_prev.0.clone(),
-        //         )
-        //         .unwrap()
-        //     {
-        //         return false;
-        //     }
-        //     current_root = round_proof.g_root.clone();
-        // }
-        // if !proof
-        //     .queries_to_final
-        //     .1
-        //     .verify(
-        //         &self.config.merkle_leaf_hash_param,
-        //         &self.config.merkle_two_to_one_param,
-        //         &current_root,
-        //         proof.queries_to_final.0.clone(),
-        //     )
-        //     .unwrap()
-        // {
-        //     return false;
-        // }
+        let mut current_root = commitment.p_commitment.root();
+        for round_proof in &proof.round_proofs {
+            let (answers, proofs) = &round_proof.queries_to_prev;
+            for (i, proof) in proofs.iter().enumerate() {
+                let answer = answers[i].clone();
+                if !proof
+                    .verify(
+                        &self.config.merkle_leaf_hash_param,
+                        &self.config.merkle_two_to_one_param,
+                        &current_root,
+                        answer,
+                    )
+                    .unwrap()
+                {
+                    return false;
+                }
+            }
+            current_root = round_proof.g_root.clone();
+        }
+        let (final_answers, final_proofs) = &proof.queries_to_final;
+        for (i, proof) in final_proofs.iter().enumerate() {
+            let answer = final_answers[i].clone();
+            if !proof
+                .verify(
+                    &self.config.merkle_leaf_hash_param,
+                    &self.config.merkle_two_to_one_param,
+                    &current_root,
+                    answer,
+                )
+                .unwrap()
+            {
+                return false;
+            }
+        }
 
         // Now, we recompute
         let mut sponge = S::new(&self.config.sponge_config);

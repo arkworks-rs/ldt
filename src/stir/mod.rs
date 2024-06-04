@@ -19,32 +19,31 @@ mod tests {
     };
 
     type TestField = Field256;
-    type TestMerkleConfig = merkle_tree::poseidon::MerkleTreeParams<Field256>;
-    type TestSpongeConfig = PoseidonSponge<Field256>;
+    type TestMerkleConfig = merkle_tree::poseidon::MerkleTreeParams<TestField>;
+    type TestSpongeConfig = PoseidonSponge<TestField>;
 
     #[test]
     fn test_stir_ldt() {
         // get ready
         let mut rng = test_rng();
-        let mt_config = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
-        let fs_config = fs::poseidon::default_fs_config::<Field256>();
-        let config: STIRConfig<TestMerkleConfig, TestSpongeConfig> = STIRConfig::new(
-            2,
-            4,
-            mt_config.0.clone(),
-            mt_config.1.clone(),
-            2,
-            vec![2, 2, 2, 2, 2], // TODO: these are getting 1-indexed for some reason
-            vec![2, 2, 2, 2, 2],
-            fs_config.clone(),
-            22,
-            8,
-        );
+        let (merkle_leaf_hash_param, merkle_two_to_one_param) = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
+        let config: STIRConfig<TestMerkleConfig, TestSpongeConfig> = STIRConfig {
+            folding_factor: 16,
+            num_rounds: 4,
+            merkle_leaf_hash_param,
+            merkle_two_to_one_param,
+            num_out_of_domain_samples: 2,
+            proof_of_work_bits: vec![2, 2, 2, 2, 2],
+            repetitions: vec![2, 2, 2, 2, 2],
+            sponge_config: fs::poseidon::default_fs_config::<Field256>(),
+            starting_degree: 16,
+            starting_rate: 8,
+        };
         let (prover, verifier) =
             STIR::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
 
         // generate random witness
-        let polynomial = DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng);
+        let polynomial = DensePolynomial::<Field256>::rand(config.starting_degree - 1, &mut rng);
 
         // commit
         let commitment = Commitment::<Field256, TestMerkleConfig>::new(

@@ -19,27 +19,26 @@ mod tests {
     };
 
     type TestField = Field256;
-    type TestMerkleConfig = merkle_tree::poseidon::MerkleTreeParams<Field256>;
-    type TestSpongeConfig = PoseidonSponge<Field256>;
+    type TestMerkleConfig = merkle_tree::poseidon::MerkleTreeParams<TestField>;
+    type TestSpongeConfig = PoseidonSponge<TestField>;
 
     #[test]
     fn test_fri_ldt() {
         // get ready
         let mut rng = test_rng();
-        let mt_config = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
-        let fs_config = fs::poseidon::default_fs_config::<Field256>();
-        let config: FRIConfig<TestMerkleConfig, TestSpongeConfig> = FRIConfig::new(
-            2,
-            8,
-            4,
-            mt_config.0.clone(),
-            mt_config.1.clone(),
-            8,
-            4,
-            fs_config.clone(),
-            22,
-            8,
-        );
+        let (merkle_leaf_hash_param, merkle_two_to_one_param) = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
+        let config: FRIConfig<TestMerkleConfig, TestSpongeConfig> = FRIConfig {
+            folding_factor: 2,
+            num_rounds: 4,
+            num_queries: 8,
+            merkle_leaf_hash_param,
+            merkle_two_to_one_param,
+            proof_of_work_bits: 8,
+            repetitions: 4,
+            sponge_config: fs::poseidon::default_fs_config::<Field256>(),
+            starting_degree: 22,
+            starting_rate: 8,
+        };
         let (prover, verifier) =
             FRI::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
 
