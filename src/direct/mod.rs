@@ -26,7 +26,8 @@ mod tests {
     fn test_direct_ldt() {
         // get ready
         let mut rng = test_rng();
-        let (merkle_leaf_hash_param, merkle_two_to_one_param) = merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
+        let (merkle_leaf_hash_param, merkle_two_to_one_param) =
+            merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
         let config: DirectConfig<TestMerkleConfig, TestSpongeConfig> = DirectConfig {
             degree: 22,
             num_queries: 2,

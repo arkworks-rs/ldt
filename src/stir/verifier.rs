@@ -147,11 +147,8 @@ where
         sponge.absorb(&commitment.p_commitment.root());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
-        let domain = Domain::<F>::new(
-            self.config.starting_degree,
-            self.config.starting_rate,
-        )
-        .unwrap();
+        let domain =
+            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
 
         let domain_gen = domain.element(1);
         let domain_size = domain.size();
@@ -177,9 +174,8 @@ where
         // Now, we sample the last points that we want to check consisntency at
         let final_repetitions = self.config.repetitions[self.config.num_rounds];
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
-        let final_randomness_indexes = dedup(
-            (0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)),
-        );
+        let final_randomness_indexes =
+            dedup((0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)));
 
         if !proof_of_work_verify(
             &mut sponge,
@@ -316,8 +312,7 @@ where
                             group_gen_inv: generator_inv,
                             offset: *coset_offset,
                             offset_inv: *coset_offset_inv,
-                            offset_pow_size: coset_offset
-                                .pow([self.config.folding_factor as u64]),
+                            offset_pow_size: coset_offset.pow([self.config.folding_factor as u64]),
                         };
 
                         virtual_function
@@ -436,9 +431,8 @@ where
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
 
         let num_repetitions = self.config.repetitions[verification_state.num_round];
-        let stir_randomness_indexes = dedup(
-            (0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)),
-        );
+        let stir_randomness_indexes =
+            dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
 
         // PoW verification
         if !proof_of_work_verify(

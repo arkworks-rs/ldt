@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, MerkleTree, Path},
+    merkle_tree::{Config as MerkleConfig, LeafParam, MerkleTree, Path, TwoToOneParam},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
@@ -10,7 +10,7 @@ use crate::{
     commitment::Commitment,
     domain::Domain,
     ldt::Prover,
-    poly_utils,
+    poly_utils::{self, folding},
     stir::{
         config::STIRConfig,
         proof::{STIRProof, STIRRoundProof},
@@ -51,13 +51,9 @@ where
         }
     }
     fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
-        // TODO: Fix later
-        // assert!(witness.polynomial.degree() < self.parameters.starting_degree);
+        assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
 
-        let mut sponge = S::new(&self.config.sponge_config);
-        // TODO: Add parameters to FS
-        sponge.absorb(&commitment.p_commitment.root());
-        let folding_randomness = sponge.squeeze_field_elements(1)[0];
+        let (folding_randomness, mut sponge) = self.sponge_up(commitment.p_commitment.root());
 
         let mut witness = WitnessExtended {
             domain: commitment.domain.clone(),
@@ -81,28 +77,14 @@ where
             witness.folding_randomness,
         );
 
-        let final_repetitions = self.config.repetitions[self.config.num_rounds];
-        let scaling_factor = witness.domain.size() / self.config.folding_factor;
-        let final_randomness_indexes = dedup(
-            (0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)),
+        let (_, leaf_values_of_queries, inclusion_proofs_of_queries) = Self::generate_sampling(
+            &mut sponge,
+            witness.domain.clone(),
+            witness.merkle_tree.clone(),
+            witness.folded_evals.clone(),
+            self.config.repetitions[self.config.num_rounds],
+            self.config.folding_factor,
         );
-
-        let queries_to_final_ans: Vec<_> = final_randomness_indexes
-            .iter()
-            .map(|index| witness.folded_evals[*index].clone())
-            .collect();
-
-        // TODO `generate_multi_proof`` doesn't exist w/ my version of ark_crypto_primitives
-        // let queries_to_final_proof = witness
-        //     .merkle_tree
-        //     .generate_multi_proof(final_randomness_indexes)
-        //     .unwrap();
-        let mut queries_to_final_proof: Vec<Path<M>> = Vec::with_capacity(final_randomness_indexes.len());
-        for query in final_randomness_indexes.clone() {
-            queries_to_final_proof.push(witness.merkle_tree.generate_proof(query).unwrap());
-        }
-
-        let queries_to_final = (queries_to_final_ans, queries_to_final_proof);
 
         let pow_nonce = proof_of_work(
             &mut sponge,
@@ -112,7 +94,7 @@ where
         Self::Proof {
             round_proofs,
             polynomial: final_polynomial,
-            queries_to_final,
+            queries_to_final: (leaf_values_of_queries, inclusion_proofs_of_queries),
             proof_of_work_nonce: pow_nonce,
         }
     }
@@ -125,79 +107,63 @@ where
 {
     fn compute_round(
         &self,
-        sponge: &mut impl CryptographicSponge,
+        sponge: &mut S,
         witness: &WitnessExtended<F, M>,
     ) -> (WitnessExtended<F, M>, STIRRoundProof<F, M>) {
-        let g_poly = poly_utils::folding::poly_fold(
-            &witness.polynomial,
+        // 1. perform fold / scale
+        let (folded_polynomial, scaled_domain, folded_evaluations) = Self::fold_polynomial(
+            witness.polynomial.clone(),
+            witness.domain.clone(),
             self.config.folding_factor,
             witness.folding_randomness,
         );
 
-        // TODO: For now, I am FFTing
-        let g_domain = witness.domain.scale_offset(2);
-        let g_evaluations = g_poly
-            .evaluate_over_domain_by_ref(g_domain.backing_domain)
-            .evals;
-
-        let g_folded_evaluations =
-            stack_evaluations(g_evaluations, self.config.folding_factor);
-        let g_merkle = MerkleTree::<M>::new(
+        // 2. generate commitment
+        let folded_p_commitment = MerkleTree::<M>::new(
             &self.config.merkle_leaf_hash_param,
             &self.config.merkle_two_to_one_param,
-            &g_folded_evaluations,
+            &folded_evaluations,
         )
         .unwrap();
-        let g_root = g_merkle.root();
-        sponge.absorb(&g_root);
+        let folded_p_commitment_root = folded_p_commitment.root();
+        sponge.absorb(&folded_p_commitment_root);
 
-        // Out of domain sample
-        let ood_randomness = sponge.squeeze_field_elements(self.config.num_out_of_domain_samples);
-        let betas = ood_randomness
-            .iter()
-            .map(|alpha| g_poly.evaluate(alpha))
-            .collect();
-        sponge.absorb(&betas);
+        // 3. out of domain sampling
+        let (out_of_domain_samples, out_of_domain_evaluations) =
+            Self::get_out_of_domain_evaluations(
+                sponge,
+                folded_polynomial.clone(),
+                self.config.num_out_of_domain_samples,
+            );
+        sponge.absorb(&out_of_domain_evaluations);
 
+        // TODO is there a reason these occur here rather than immediately before their usage?
         // Proximity generator
         let comb_randomness: F = sponge.squeeze_field_elements(1)[0];
-
         // Folding randomness for next round
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
-        // Sample the indexes of L^k that we are going to use for querying the previous Merkle tree
-        let scaling_factor = witness.domain.size() / self.config.folding_factor;
-        let num_repetitions = self.config.repetitions[witness.num_round];
-        let stir_randomness_indexes = dedup(
-            (0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)),
-        );
+        // 4. generate challenges and answers
+        // The verifier queries the previous oracle at the indexes of L^k (reading the corresponding evals)
+        let (random_queries, leaf_values_of_queries, inclusion_proofs_of_queries) =
+            Self::generate_sampling(
+                sponge,
+                witness.domain.clone(),
+                witness.merkle_tree.clone(),
+                witness.folded_evals.clone(),
+                self.config.repetitions[witness.num_round],
+                self.config.folding_factor,
+            );
+        let queries_to_prev = (leaf_values_of_queries, inclusion_proofs_of_queries);
 
         let pow_nonce = proof_of_work(sponge, self.config.proof_of_work_bits[witness.num_round]);
 
         // Not used
         let _shake_randomness: F = sponge.squeeze_field_elements(1)[0];
 
-        // The verifier queries the previous oracle at the indexes of L^k (reading the
-        // corresponding evals)
-        let queries_to_prev_ans: Vec<_> = stir_randomness_indexes
-            .iter()
-            .map(|&index| witness.folded_evals[index].clone())
-            .collect();
-
-        // TODO `generate_multi_proof`` doesn't exist w/ my version of ark_crypto_primitives
-        // let queries_to_prev_proof = witness
-        //     .merkle_tree
-        //     .generate_multi_proof(stir_randomness_indexes.clone())
-        //     .unwrap();
-        let mut queries_to_prev_proof: Vec<Path<M>> = Vec::with_capacity(stir_randomness_indexes.len());
-        for query in stir_randomness_indexes.clone() {
-            queries_to_prev_proof.push(witness.merkle_tree.generate_proof(query).unwrap());
-        }
-        let queries_to_prev = (queries_to_prev_ans, queries_to_prev_proof);
-
         // Here, we update the witness
         // First, compute the set of points we are actually going to query at
-        let stir_randomness: Vec<_> = stir_randomness_indexes
+        let stir_randomness: Vec<_> = random_queries
             .iter()
             .map(|index| {
                 witness
@@ -208,7 +174,7 @@ where
             .collect();
 
         // Then compute the set we are quotienting by
-        let quotient_set: Vec<_> = ood_randomness
+        let quotient_set: Vec<_> = out_of_domain_samples
             .into_iter()
             .chain(stir_randomness.iter().cloned())
             .collect();
@@ -216,7 +182,7 @@ where
         // TODO: We can probably reuse this in quotient
         let quotient_answers = quotient_set
             .iter()
-            .map(|x| (*x, g_poly.evaluate(x)))
+            .map(|x| (*x, folded_polynomial.evaluate(x)))
             .collect::<Vec<_>>();
 
         let ans_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
@@ -229,7 +195,8 @@ where
         }
 
         // The quotient polynomial is then computed
-        let quotient_polynomial = poly_utils::quotient::poly_quotient(&g_poly, &quotient_set);
+        let quotient_polynomial =
+            poly_utils::quotient::poly_quotient(&folded_polynomial, &quotient_set);
 
         // This is the polynomial 1 + r * x + r^2 * x^2 + ... + r^n * x^n where n = |quotient_set|
         let scaling_polynomial = DensePolynomial::from_coefficients_vec(
@@ -242,21 +209,101 @@ where
 
         (
             WitnessExtended {
-                domain: g_domain,
+                domain: scaled_domain,
                 polynomial: witness_polynomial,
-                merkle_tree: g_merkle,
-                folded_evals: g_folded_evaluations,
+                merkle_tree: folded_p_commitment,
+                folded_evals: folded_evaluations,
                 num_round: witness.num_round + 1,
                 folding_randomness,
             },
             STIRRoundProof {
-                g_root,
-                betas,
+                g_root: folded_p_commitment_root,
+                betas: out_of_domain_evaluations,
                 queries_to_prev,
                 ans_polynomial,
                 shake_polynomial,
                 proof_of_work_nonce: pow_nonce,
             },
         )
+    }
+
+    fn sponge_up(&self, digest: M::InnerDigest) -> (F, S) {
+        let mut sponge = S::new(&self.config.sponge_config);
+        sponge.absorb(&digest);
+        (sponge.squeeze_field_elements(1)[0], sponge)
+    }
+    fn get_leaf_values_from_queries(queries: Vec<usize>, evaluations: Vec<Vec<F>>) -> Vec<Vec<F>> {
+        queries
+            .iter()
+            .map(|index| evaluations[*index].clone())
+            .collect()
+    }
+    fn squeeze_queries(
+        sponge: &mut S,
+        domain: Domain<F>,
+        num_repetitions: usize,
+        folding_factor: usize,
+    ) -> Vec<usize> {
+        let scaling_factor: usize = domain.size() / folding_factor;
+        // TODO: how would you get a dupe? And would't you be short one query if you did get one?
+        let random_queries: Vec<usize> =
+            dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
+        return random_queries;
+    }
+    fn get_inclusion_proofs(p_commitment: MerkleTree<M>, leaf_indices: Vec<usize>) -> Vec<Path<M>> {
+        // TODO: change this back to multiproof API
+        let mut inclusion_proofs: Vec<Path<M>> = Vec::with_capacity(leaf_indices.len());
+        for leaf_index in leaf_indices {
+            inclusion_proofs.push(p_commitment.generate_proof(leaf_index).unwrap());
+        }
+        inclusion_proofs
+    }
+    fn generate_sampling(
+        sponge: &mut S,
+        domain: Domain<F>,
+        p_commitment: MerkleTree<M>,
+        evaluations: Vec<Vec<F>>,
+        num_repetitions: usize,
+        folding_factor: usize,
+    ) -> (Vec<usize>, Vec<Vec<F>>, Vec<Path<M>>) {
+        let random_queries: Vec<usize> =
+            Self::squeeze_queries(sponge, domain.clone(), num_repetitions, folding_factor);
+        let leaf_values_of_queries: Vec<Vec<F>> =
+            Self::get_leaf_values_from_queries(random_queries.clone(), evaluations);
+        let inclusion_proofs_of_queries: Vec<Path<M>> =
+            Self::get_inclusion_proofs(p_commitment, random_queries.clone());
+        (
+            random_queries,
+            leaf_values_of_queries,
+            inclusion_proofs_of_queries,
+        )
+    }
+    fn fold_polynomial(
+        polynomial: DensePolynomial<F>,
+        domain: Domain<F>,
+        folding_factor: usize,
+        folding_randomness: F,
+    ) -> (DensePolynomial<F>, Domain<F>, Vec<Vec<F>>) {
+        let folded_p =
+            poly_utils::folding::poly_fold(&polynomial, folding_factor, folding_randomness);
+        // TODO: there is some other option than FFT?
+        let scaled_domain = domain.scale_offset(2);
+        let evaluations = folded_p
+            .evaluate_over_domain_by_ref(scaled_domain.backing_domain)
+            .evals;
+        let folded_evaluations = stack_evaluations(evaluations, folding_factor);
+        (folded_p, scaled_domain, folded_evaluations)
+    }
+    fn get_out_of_domain_evaluations(
+        sponge: &mut S,
+        polynomial: DensePolynomial<F>,
+        num_samples: usize,
+    ) -> (Vec<F>, Vec<F>) {
+        let out_of_domain_samples: Vec<F> = sponge.squeeze_field_elements(num_samples);
+        let evaluations: Vec<F> = out_of_domain_samples
+            .iter()
+            .map(|sample| polynomial.evaluate(sample))
+            .collect();
+        (out_of_domain_samples, evaluations)
     }
 }
