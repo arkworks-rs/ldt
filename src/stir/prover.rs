@@ -111,7 +111,7 @@ where
         witness: &WitnessExtended<F, M>,
     ) -> (WitnessExtended<F, M>, STIRRoundProof<F, M>) {
         // 1. perform fold / scale
-        let (folded_polynomial, scaled_domain, folded_evaluations) = Self::fold_polynomial(
+        let (folded_polynomial, mut scaled_domain, folded_evaluations) = Self::fold_polynomial(
             witness.polynomial.clone(),
             witness.domain.clone(),
             self.config.folding_factor,
@@ -156,56 +156,28 @@ where
             );
         let queries_to_prev = (leaf_values_of_queries, inclusion_proofs_of_queries);
 
+        // 5. Proof of work
         let pow_nonce = proof_of_work(sponge, self.config.proof_of_work_bits[witness.num_round]);
 
         // Not used
         let _shake_randomness: F = sponge.squeeze_field_elements(1)[0];
 
-        // Here, we update the witness
-        // First, compute the set of points we are actually going to query at
-        let stir_randomness: Vec<_> = random_queries
-            .iter()
-            .map(|index| {
-                witness
-                    .domain
-                    .scale(self.config.folding_factor)
-                    .element(*index)
-            })
-            .collect();
-
-        // Then compute the set we are quotienting by
-        let quotient_set: Vec<_> = out_of_domain_samples
-            .into_iter()
-            .chain(stir_randomness.iter().cloned())
-            .collect();
-
-        // TODO: We can probably reuse this in quotient
-        let quotient_answers = quotient_set
-            .iter()
-            .map(|x| (*x, folded_polynomial.evaluate(x)))
-            .collect::<Vec<_>>();
-
-        let ans_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
-
-        let mut shake_polynomial = DensePolynomial::from_coefficients_vec(vec![]);
-        for (x, y) in quotient_answers {
-            let num_polynomial = &ans_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
-            let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-x, F::ONE]);
-            shake_polynomial = shake_polynomial + (&num_polynomial / &den_polynomial);
-        }
-
-        // The quotient polynomial is then computed
-        let quotient_polynomial =
-            poly_utils::quotient::poly_quotient(&folded_polynomial, &quotient_set);
-
-        // This is the polynomial 1 + r * x + r^2 * x^2 + ... + r^n * x^n where n = |quotient_set|
-        let scaling_polynomial = DensePolynomial::from_coefficients_vec(
-            (0..quotient_set.len() + 1)
-                .map(|i| comb_randomness.pow([i as u64]))
-                .collect(),
+        // 6. Generate quotient set and answers
+        let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
+            &mut scaled_domain,
+            folded_polynomial.clone(),
+            random_queries,
+            out_of_domain_samples,
+            self.config.folding_factor,
         );
 
-        let witness_polynomial = &quotient_polynomial * &scaling_polynomial;
+        // 7. compute polynomials
+        let (ans_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
+            quotient_set,
+            quotient_answers,
+            folded_polynomial,
+            comb_randomness,
+        );
 
         (
             WitnessExtended {
@@ -305,5 +277,58 @@ where
             .map(|sample| polynomial.evaluate(sample))
             .collect();
         (out_of_domain_samples, evaluations)
+    }
+    fn get_quotient_set_and_answers(
+        domain: &mut Domain<F>,
+        polynomial: DensePolynomial<F>,
+        random_queries: Vec<usize>,
+        out_of_domain_samples: Vec<F>,
+        folding_factor: usize,
+    ) -> (Vec<F>, Vec<(F, F)>) {
+        let stir_randomness: Vec<F> = random_queries
+            .iter()
+            .map(|index| domain.scale(folding_factor).element(*index))
+            .collect();
+
+        // Then compute the set we are quotienting by
+        let quotient_set: Vec<F> = out_of_domain_samples
+            .into_iter()
+            .chain(stir_randomness.iter().cloned())
+            .collect();
+
+        // TODO: We can probably reuse this in quotient
+        let quotient_answers: Vec<(F, F)> = quotient_set
+            .iter()
+            .map(|x| (*x, polynomial.evaluate(x)))
+            .collect::<Vec<_>>();
+        (quotient_set, quotient_answers)
+    }
+    fn compute_polynomials(
+        quotient_set: Vec<F>,
+        quotient_answers: Vec<(F, F)>,
+        polynomial: DensePolynomial<F>,
+        comb_randomness: F,
+    ) -> (DensePolynomial<F>, DensePolynomial<F>, DensePolynomial<F>) {
+        let ans_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
+
+        let mut shake_polynomial = DensePolynomial::from_coefficients_vec(vec![]);
+        for (x, y) in quotient_answers {
+            let num_polynomial = &ans_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
+            let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-x, F::ONE]);
+            shake_polynomial = shake_polynomial + (&num_polynomial / &den_polynomial);
+        }
+
+        // The quotient polynomial is then computed
+        let quotient_polynomial = poly_utils::quotient::poly_quotient(&polynomial, &quotient_set);
+
+        // This is the polynomial 1 + r * x + r^2 * x^2 + ... + r^n * x^n where n = |quotient_set|
+        let scaling_polynomial = DensePolynomial::from_coefficients_vec(
+            (0..quotient_set.len() + 1)
+                .map(|i| comb_randomness.pow([i as u64]))
+                .collect(),
+        );
+
+        let witness_polynomial = &quotient_polynomial * &scaling_polynomial;
+        (ans_polynomial, shake_polynomial, witness_polynomial)
     }
 }
