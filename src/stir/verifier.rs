@@ -101,7 +101,7 @@ where
         }
     }
     fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool {
-        if proof.polynomial.degree() + 1 > self.config.stopping_degree {
+        if proof.final_round_proof.polynomial.degree() + 1 > self.config.stopping_degree {
             return false;
         }
 
@@ -127,7 +127,7 @@ where
             }
             current_root = round_proof.p_commitment_root.clone();
         }
-        for (final_leaf_value, final_inclusion_proof) in proof.leaf_values_of_queries.iter().zip(proof.inclusion_proofs_of_queries.iter()) {
+        for (final_leaf_value, final_inclusion_proof) in proof.final_round_proof.leaf_values_of_queries.iter().zip(proof.final_round_proof.inclusion_proofs_of_queries.iter()) {
             if !final_inclusion_proof
                 .verify(
                     &self.config.merkle_leaf_hash_param,
@@ -180,14 +180,14 @@ where
         if !proof_of_work_verify(
             &mut sponge,
             self.config.proof_of_work_bits[self.config.num_rounds],
-            proof.proof_of_work_nonce,
+            proof.final_round_proof.proof_of_work_nonce,
         ) {
             return false;
         }
 
         // First, we want to query back the last oracle at this point, which is, again, just a
         // lookup
-        let oracle_answers = proof.leaf_values_of_queries.clone();
+        let oracle_answers = proof.final_round_proof.leaf_values_of_queries.clone();
 
         let folded_answers = self.compute_folded_evaluations(
             &verification_state,
@@ -197,7 +197,7 @@ where
 
         folded_answers
             .into_iter()
-            .all(|(point, value)| proof.polynomial.evaluate(&point) == value)
+            .all(|(point, value)| proof.final_round_proof.polynomial.evaluate(&point) == value)
     }
 }
 

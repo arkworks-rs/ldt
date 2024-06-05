@@ -12,10 +12,14 @@ pub struct STIRRoundProof<F: Field, M: MerkleConfig> {
     pub shake_polynomial: DensePolynomial<F>,
 }
 
-pub struct STIRProof<F: Field, M: MerkleConfig> {
+pub struct STIRFinalRoundProof<F: Field, M: MerkleConfig> {
     pub polynomial: DensePolynomial<F>,
-    pub round_proofs: Vec<STIRRoundProof<F, M>>,
     pub proof_of_work_nonce: Option<usize>,
     pub leaf_values_of_queries: Vec<Vec<F>>,
     pub inclusion_proofs_of_queries: Vec<Path<M>>,
+}
+
+pub struct STIRProof<F: Field, M: MerkleConfig> {
+    pub final_round_proof: STIRFinalRoundProof<F, M>,
+    pub round_proofs: Vec<STIRRoundProof<F, M>>,
 }

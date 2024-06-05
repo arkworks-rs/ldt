@@ -13,7 +13,7 @@ use crate::{
     poly_utils,
     stir::{
         config::STIRConfig,
-        proof::{STIRProof, STIRRoundProof},
+        proof::{STIRFinalRoundProof, STIRProof, STIRRoundProof},
     },
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
@@ -165,10 +165,12 @@ where
 
         Self::Proof {
             round_proofs,
-            polynomial: final_polynomial,
-            leaf_values_of_queries,
-            inclusion_proofs_of_queries,
-            proof_of_work_nonce: pow_nonce,
+            final_round_proof: STIRFinalRoundProof {
+                polynomial: final_polynomial,
+                leaf_values_of_queries,
+                inclusion_proofs_of_queries,
+                proof_of_work_nonce: pow_nonce,
+            }
         }
     }
 }
