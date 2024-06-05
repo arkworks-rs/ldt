@@ -101,23 +101,24 @@ where
         }
     }
     fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool {
-        // TODO fix this
-        // if proof.final_polynomial.degree() + 1 > self.parameters.stopping_degree {
-        //     return false;
-        // }
+        if proof.polynomial.degree() + 1 > self.config.stopping_degree {
+            return false;
+        }
 
         // First we verify all Merkle paths
         let mut current_root = commitment.p_commitment.root();
         for round_proof in &proof.round_proofs {
-            let (answers, proofs) = &round_proof.queries_to_prev;
-            for (i, proof) in proofs.iter().enumerate() {
-                let answer = answers[i].clone();
-                if !proof
+            for (leaf_value, inclusion_proof) in round_proof
+                .leaf_values_of_queries
+                .iter()
+                .zip(round_proof.inclusion_proofs_of_queries.iter())
+            {
+                if !inclusion_proof
                     .verify(
                         &self.config.merkle_leaf_hash_param,
                         &self.config.merkle_two_to_one_param,
                         &current_root,
-                        answer,
+                        leaf_value,
                     )
                     .unwrap()
                 {
@@ -126,15 +127,13 @@ where
             }
             current_root = round_proof.p_commitment_root.clone();
         }
-        let (final_answers, final_proofs) = &proof.queries_to_final;
-        for (i, proof) in final_proofs.iter().enumerate() {
-            let answer = final_answers[i].clone();
-            if !proof
+        for (final_leaf_value, final_inclusion_proof) in proof.leaf_values_of_queries.iter().zip(proof.inclusion_proofs_of_queries.iter()) {
+            if !final_inclusion_proof
                 .verify(
                     &self.config.merkle_leaf_hash_param,
                     &self.config.merkle_two_to_one_param,
                     &current_root,
-                    answer,
+                    final_leaf_value,
                 )
                 .unwrap()
             {
@@ -146,6 +145,7 @@ where
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&commitment.p_commitment.root());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
+        
 
         let domain =
             Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
@@ -187,7 +187,7 @@ where
 
         // First, we want to query back the last oracle at this point, which is, again, just a
         // lookup
-        let oracle_answers = proof.queries_to_final.0.clone();
+        let oracle_answers = proof.leaf_values_of_queries.clone();
 
         let folded_answers = self.compute_folded_evaluations(
             &verification_state,
@@ -450,7 +450,7 @@ where
         // At the indexes B_i for i in stir_randomness_indexes
         // Since we previously verified the Merkle paths, this is easy
         // TODO: We should probably check the indexes
-        let oracle_answers = round_proof.queries_to_prev.0.clone();
+        let oracle_answers = round_proof.leaf_values_of_queries.clone();
 
         // Now, for each of the selected random points, we need to compute the folding of the
         // previous oracle

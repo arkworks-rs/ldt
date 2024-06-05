@@ -7,7 +7,8 @@ pub struct STIRRoundProof<F: Field, M: MerkleConfig> {
     pub out_of_domain_evaluations: Vec<F>,
     pub p_commitment_root: M::InnerDigest,
     pub proof_of_work_nonce: Option<usize>,
-    pub queries_to_prev: (Vec<Vec<F>>, Vec<Path<M>>),
+    pub leaf_values_of_queries: Vec<Vec<F>>,
+    pub inclusion_proofs_of_queries: Vec<Path<M>>,
     pub shake_polynomial: DensePolynomial<F>,
 }
 
@@ -15,5 +16,6 @@ pub struct STIRProof<F: Field, M: MerkleConfig> {
     pub polynomial: DensePolynomial<F>,
     pub round_proofs: Vec<STIRRoundProof<F, M>>,
     pub proof_of_work_nonce: Option<usize>,
-    pub queries_to_final: (Vec<Vec<F>>, Vec<Path<M>>),
+    pub leaf_values_of_queries: Vec<Vec<F>>,
+    pub inclusion_proofs_of_queries: Vec<Path<M>>,
 }

@@ -101,7 +101,6 @@ where
                     self.config.repetitions[round_num],
                     self.config.folding_factor,
                 ); // used by final round
-            let queries_to_prev = (leaf_values_of_queries, inclusion_proofs_of_queries);
 
             // 5. Proof of work
             let pow_nonce = proof_of_work(&mut sponge, self.config.proof_of_work_bits[round_num]); // used by final round
@@ -119,12 +118,13 @@ where
             );
 
             // 7. compute polynomials
-            let (answer_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
-                quotient_set,
-                quotient_answers,
-                folded_polynomial,
-                comb_randomness,
-            );
+            let (answer_polynomial, shake_polynomial, witness_polynomial) =
+                Self::compute_polynomials(
+                    quotient_set,
+                    quotient_answers,
+                    folded_polynomial,
+                    comb_randomness,
+                );
             domain = scaled_domain;
             polynomial = witness_polynomial;
             p_commitment = folded_p_commitment;
@@ -134,7 +134,9 @@ where
             round_proofs.push(STIRRoundProof {
                 p_commitment_root: folded_p_commitment_root,
                 out_of_domain_evaluations,
-                queries_to_prev,
+                // queries_to_prev,
+                leaf_values_of_queries,
+                inclusion_proofs_of_queries,
                 answer_polynomial,
                 shake_polynomial,
                 proof_of_work_nonce: pow_nonce,
@@ -164,7 +166,8 @@ where
         Self::Proof {
             round_proofs,
             polynomial: final_polynomial,
-            queries_to_final: (leaf_values_of_queries, inclusion_proofs_of_queries),
+            leaf_values_of_queries,
+            inclusion_proofs_of_queries,
             proof_of_work_nonce: pow_nonce,
         }
     }
@@ -175,6 +178,9 @@ impl<F: FftField + PrimeField + Absorb, M: MerkleConfig<Leaf = Vec<F>>, S: Crypt
 where
     M::InnerDigest: Absorb,
 {
+    fn is_final_round(&self, current_round: usize) -> bool {
+        current_round == self.config.num_rounds
+    }
     fn sponge_up(&self, digest: M::InnerDigest) -> (F, S) {
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&digest);
@@ -289,7 +295,8 @@ where
 
         let mut shake_polynomial = DensePolynomial::from_coefficients_vec(vec![]);
         for (x, y) in quotient_answers {
-            let num_polynomial = &answer_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
+            let num_polynomial =
+                &answer_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
             let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-x, F::ONE]);
             shake_polynomial = shake_polynomial + (&num_polynomial / &den_polynomial);
         }

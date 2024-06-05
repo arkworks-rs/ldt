@@ -14,6 +14,7 @@ pub struct STIRConfig<M: MerkleConfig, S: CryptographicSponge> {
     pub sponge_config: S::Config,
     pub starting_degree: usize,
     pub starting_rate: usize,
+    pub stopping_degree: usize,
 }
 
 impl<M: MerkleConfig, S: CryptographicSponge> STIRConfig<M, S> {
@@ -28,6 +29,7 @@ impl<M: MerkleConfig, S: CryptographicSponge> STIRConfig<M, S> {
         sponge_config: S::Config,
         starting_degree: usize,
         starting_rate: usize,
+        stopping_degree: usize,
     ) -> Self {
         Self {
             folding_factor,
@@ -40,6 +42,7 @@ impl<M: MerkleConfig, S: CryptographicSponge> STIRConfig<M, S> {
             sponge_config,
             starting_degree,
             starting_rate,
+            stopping_degree,
         }
     }
 }
@@ -62,6 +65,7 @@ where
             sponge_config: self.sponge_config.clone(),
             starting_degree: self.starting_degree,
             starting_rate: self.starting_rate,
+            stopping_degree: self.stopping_degree,
         }
     }
 }

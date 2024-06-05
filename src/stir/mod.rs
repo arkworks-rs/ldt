@@ -39,6 +39,7 @@ mod tests {
             sponge_config: fs::poseidon::default_fs_config::<Field256>(),
             starting_degree: 16,
             starting_rate: 8,
+            stopping_degree: 8,
         };
         let (prover, verifier) =
             STIR::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
