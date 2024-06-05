@@ -12,6 +12,7 @@ pub struct STIRRoundProof<F: Field, M: MerkleConfig> {
 }
 
 pub struct STIRProof<F: Field, M: MerkleConfig> {
+    // pub commitments: Vec<<M>::InnerDigest>,
     pub polynomial: DensePolynomial<F>,
     pub round_proofs: Vec<STIRRoundProof<F, M>>,
     pub proof_of_work_nonce: Option<usize>,
