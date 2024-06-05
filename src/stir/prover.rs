@@ -63,6 +63,7 @@ where
                 self.config.folding_factor,
                 folding_randomness,
             );
+            // used by final round except for domain
 
             // 2. generate commitment
             let folded_p_commitment = MerkleTree::<M>::new(
@@ -99,11 +100,11 @@ where
                     p_evaluations,
                     self.config.repetitions[round_num],
                     self.config.folding_factor,
-                );
+                ); // used by final round
             let queries_to_prev = (leaf_values_of_queries, inclusion_proofs_of_queries);
 
             // 5. Proof of work
-            let pow_nonce = proof_of_work(&mut sponge, self.config.proof_of_work_bits[round_num]);
+            let pow_nonce = proof_of_work(&mut sponge, self.config.proof_of_work_bits[round_num]); // used by final round
 
             // Not used
             let _shake_randomness: F = sponge.squeeze_field_elements(1)[0];
@@ -118,7 +119,7 @@ where
             );
 
             // 7. compute polynomials
-            let (ans_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
+            let (answer_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
                 quotient_set,
                 quotient_answers,
                 folded_polynomial,
@@ -131,10 +132,10 @@ where
             folding_randomness = folding_randomness;
 
             round_proofs.push(STIRRoundProof {
-                g_root: folded_p_commitment_root,
-                betas: out_of_domain_evaluations,
+                p_commitment_root: folded_p_commitment_root,
+                out_of_domain_evaluations,
                 queries_to_prev,
-                ans_polynomial,
+                answer_polynomial,
                 shake_polynomial,
                 proof_of_work_nonce: pow_nonce,
             });
@@ -284,11 +285,11 @@ where
         polynomial: DensePolynomial<F>,
         comb_randomness: F,
     ) -> (DensePolynomial<F>, DensePolynomial<F>, DensePolynomial<F>) {
-        let ans_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
+        let answer_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
 
         let mut shake_polynomial = DensePolynomial::from_coefficients_vec(vec![]);
         for (x, y) in quotient_answers {
-            let num_polynomial = &ans_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
+            let num_polynomial = &answer_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
             let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-x, F::ONE]);
             shake_polynomial = shake_polynomial + (&num_polynomial / &den_polynomial);
         }
@@ -304,6 +305,6 @@ where
         );
 
         let witness_polynomial = &quotient_polynomial * &scaling_polynomial;
-        (ans_polynomial, shake_polynomial, witness_polynomial)
+        (answer_polynomial, shake_polynomial, witness_polynomial)
     }
 }

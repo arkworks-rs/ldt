@@ -124,7 +124,7 @@ where
                     return false;
                 }
             }
-            current_root = round_proof.g_root.clone();
+            current_root = round_proof.p_commitment_root.clone();
         }
         let (final_answers, final_proofs) = &proof.queries_to_final;
         for (i, proof) in final_proofs.iter().enumerate() {
@@ -423,9 +423,9 @@ where
         verification_state: VerificationState<F>,
     ) -> Option<VerificationState<F>> {
         // Redo FS
-        sponge.absorb(&round_proof.g_root);
+        sponge.absorb(&round_proof.p_commitment_root);
         let ood_randomness = sponge.squeeze_field_elements(self.config.num_out_of_domain_samples);
-        sponge.absorb(&round_proof.betas);
+        sponge.absorb(&round_proof.out_of_domain_evaluations);
         let comb_randomness = sponge.squeeze_field_elements(1)[0];
         let new_folding_randomness = sponge.squeeze_field_elements(1)[0];
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
@@ -463,11 +463,11 @@ where
         // The quotient definining the function
         let quotient_answers: Vec<_> = ood_randomness
             .into_iter()
-            .zip(&round_proof.betas)
+            .zip(&round_proof.out_of_domain_evaluations)
             .map(|(alpha, beta)| (alpha, *beta))
             .chain(folded_answers)
             .collect();
-        let interpolating_polynomial = round_proof.ans_polynomial.clone();
+        let interpolating_polynomial = round_proof.answer_polynomial.clone();
 
         let ans_eval = interpolating_polynomial.evaluate(&shake_randomness);
         let shake_eval = round_proof.shake_polynomial.evaluate(&shake_randomness);
