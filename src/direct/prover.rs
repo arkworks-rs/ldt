@@ -26,7 +26,7 @@ where
 {
     type Config = DirectConfig<M, S>;
     type Commitment = Commitment<F, M>;
-    type Proof = DirectProof<M>;
+    type Proof = DirectProof<F, M>;
 
     fn new(config: DirectConfig<M, S>) -> Self {
         Self {
@@ -38,9 +38,9 @@ where
     }
     fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
         // absorb committment
-        let root_hash: M::InnerDigest = commitment.p_commitment.root();
+        let p_commitment_root: M::InnerDigest = commitment.p_commitment.root();
         let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&root_hash);
+        sponge.absorb(&p_commitment_root);
         // squeeze out queries
         let mut queries: Vec<usize> = Vec::with_capacity(self.config.num_queries);
         for _ in 0..self.config.num_queries {
@@ -51,6 +51,10 @@ where
         for query in queries {
             inclusion_proofs.push(commitment.p_commitment.generate_proof(query).unwrap());
         }
-        Self::Proof { inclusion_proofs }
+        Self::Proof {
+            p_commitment_root,
+            p_evaluations: commitment.p_evaluations.clone(),
+            inclusion_proofs,
+        }
     }
 }

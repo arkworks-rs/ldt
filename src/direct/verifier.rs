@@ -23,7 +23,7 @@ where
 {
     type Config = DirectConfig<M, S>;
     type Commitment = Commitment<F, M>;
-    type Proof = DirectProof<M>;
+    type Proof = DirectProof<F, M>;
 
     fn new(config: DirectConfig<M, S>) -> Self {
         Self {
@@ -33,9 +33,9 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool {
+    fn verify(&self, proof: &Self::Proof) -> bool {
         // absorb the committment to derive the queries
-        let root_hash: M::InnerDigest = commitment.p_commitment.root();
+        let root_hash: M::InnerDigest = proof.p_commitment_root.clone();
         let mut sponge: S = S::new(&self.config.sponge_config);
         sponge.absorb(&root_hash);
 
@@ -44,7 +44,7 @@ where
             // squeeze out the query
             let leaf_index_of_query: usize = squeeze_integer(
                 &mut sponge,
-                commitment.p_evaluations.len(), // TODO: (z-tech) verify evals.len() is always power of 2
+                proof.p_evaluations.len(), // TODO: (z-tech) verify evals.len() is always power of 2
             );
 
             // verify query was derived properly
@@ -60,7 +60,7 @@ where
                     &self.config.merkle_leaf_hash_param,
                     &self.config.merkle_two_to_one_param,
                     &root_hash,
-                    commitment.p_evaluations[leaf_index_of_query].clone(),
+                    proof.p_evaluations[leaf_index_of_query].clone(),
                 )
                 .unwrap();
             if !is_valid_proof {

@@ -25,7 +25,7 @@ where
     S::Config: Clone,
 {
     type Config = DirectConfig<M, S>;
-    type Proof = DirectProof<M>;
+    type Proof = DirectProof<F, M>;
     type Prover = DirectProver<F, M, S>;
     type Verifier = DirectVerifier<F, M, S>;
 

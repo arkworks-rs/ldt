@@ -75,6 +75,7 @@ where
 
         // Boom.
         Self::Proof {
+            initial_p_commitment_root: commitment.p_commitment.root(),
             inner_round_proofs,
             final_round_proof,
         }

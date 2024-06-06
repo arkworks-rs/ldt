@@ -21,5 +21,6 @@ pub struct STIRFinalRoundProof<F: Field, M: MerkleConfig> {
 
 pub struct STIRProof<F: Field, M: MerkleConfig> {
     pub final_round_proof: STIRFinalRoundProof<F, M>,
+    pub initial_p_commitment_root: M::InnerDigest,
     pub inner_round_proofs: Vec<STIRInnerRoundProof<F, M>>,
 }

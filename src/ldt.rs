@@ -11,7 +11,7 @@ pub trait Verifier<F: FftField> {
     type Commitment;
     type Proof;
     fn new(config: Self::Config) -> Self;
-    fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool;
+    fn verify(&self, proof: &Self::Proof) -> bool;
 }
 pub trait LowDegreeTest<F: FftField> {
     type Config;

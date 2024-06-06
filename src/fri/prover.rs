@@ -165,6 +165,7 @@ where
         Self::Proof {
             polynomial: g_poly,
             commitments,
+            initial_p_commitment_root: commitment.p_commitment.root(),
             round_proofs,
             proof_of_work_nonce: proof_of_work(&mut sponge, self.config.proof_of_work_bits),
         }

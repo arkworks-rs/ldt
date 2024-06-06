@@ -55,6 +55,6 @@ mod tests {
         let direct_proof = prover.prove(&commitment);
 
         // verify
-        assert_eq!(verifier.verify(&commitment, &direct_proof), true);
+        assert_eq!(verifier.verify(&direct_proof), true);
     }
 }

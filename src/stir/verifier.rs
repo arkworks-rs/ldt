@@ -92,6 +92,7 @@ where
     type Config = STIRConfig<M, S>;
     type Commitment = Commitment<F, M>;
     type Proof = STIRProof<F, M>;
+
     fn new(config: STIRConfig<M, S>) -> Self {
         Self {
             config,
@@ -100,13 +101,13 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool {
+    fn verify(&self, proof: &Self::Proof) -> bool {
         if proof.final_round_proof.polynomial.degree() + 1 > self.config.stopping_degree {
             return false;
         }
 
         // First we verify all Merkle paths
-        let mut current_root = commitment.p_commitment.root();
+        let mut current_root = proof.initial_p_commitment_root.clone();
         for round_proof in &proof.inner_round_proofs {
             for (leaf_value, inclusion_proof) in round_proof
                 .leaf_values_of_queries
@@ -148,7 +149,7 @@ where
 
         // Now, we recompute
         let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&commitment.p_commitment.root());
+        sponge.absorb(&proof.initial_p_commitment_root);
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
         let domain =

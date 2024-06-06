@@ -38,7 +38,7 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn verify(&self, commitment: &Self::Commitment, proof: &Self::Proof) -> bool {
+    fn verify(&self, proof: &Self::Proof) -> bool {
         // TODO fix this
         // if proof.final_polynomial.degree() + 1 > self.parameters.stopping_degree {
         //     return false;
@@ -46,7 +46,7 @@ where
 
         // We do FS
         let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&commitment.p_commitment.root());
+        sponge.absorb(&proof.initial_p_commitment_root);
 
         let mut folding_randomnessness: Vec<F> = vec![];
         folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);
@@ -57,7 +57,7 @@ where
         }
 
         // We adjoin the initial commitment
-        let commitments: Vec<_> = std::iter::once(commitment.p_commitment.root().clone())
+        let commitments: Vec<_> = std::iter::once(proof.initial_p_commitment_root.clone())
             .chain(proof.commitments.iter().cloned())
             .collect();
 

@@ -61,6 +61,6 @@ mod tests {
         let stir_proof = prover.prove(&commitment);
 
         // verify
-        assert_eq!(verifier.verify(&commitment, &stir_proof), true);
+        assert_eq!(verifier.verify(&stir_proof), true);
     }
 }
