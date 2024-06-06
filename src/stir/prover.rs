@@ -64,13 +64,14 @@ where
         let mut inner_round_proofs: Vec<STIRInnerRoundProof<F, M>> =
             Vec::with_capacity(self.config.num_rounds);
         for _round in 0..self.config.num_rounds {
-            let (round_state, round_proof) = self.compute_inner_round(current_round_state);
+            let (round_state, round_proof) =
+                Self::compute_inner_round(&self.config, current_round_state);
             current_round_state = round_state;
             inner_round_proofs.push(round_proof);
         }
 
         // Step 3: compute final round (v similar but fewer things)
-        let final_round_proof = self.compute_final_round(current_round_state);
+        let final_round_proof = Self::compute_final_round(&self.config, current_round_state);
 
         // Boom.
         Self::Proof {
@@ -103,13 +104,13 @@ where
         }
     }
     fn compute_final_round(
-        &self,
+        config: &STIRConfig<M, S>,
         mut round_state: STIRRoundState<F, M, S>,
     ) -> STIRFinalRoundProof<F, M> {
         // Step 1: Perfom fold operation
         let polynomial = poly_utils::folding::poly_fold(
             &round_state.polynomial,
-            self.config.folding_factor,
+            config.folding_factor,
             round_state.folding_randomness,
         );
 
@@ -119,14 +120,14 @@ where
             round_state.domain,
             round_state.p_commitment,
             round_state.p_evaluations,
-            self.config.repetitions[self.config.num_rounds],
-            self.config.folding_factor,
+            config.repetitions[config.num_rounds],
+            config.folding_factor,
         );
 
         // Step 3: Proof of work
         let proof_of_work_nonce = proof_of_work(
             &mut round_state.sponge,
-            self.config.proof_of_work_bits[self.config.num_rounds],
+            config.proof_of_work_bits[config.num_rounds],
         );
 
         // Boom.
@@ -138,21 +139,21 @@ where
         }
     }
     fn compute_inner_round(
-        &self,
+        config: &STIRConfig<M, S>,
         mut round_state: STIRRoundState<F, M, S>,
     ) -> (STIRRoundState<F, M, S>, STIRInnerRoundProof<F, M>) {
         // Step 1: Perform fold/scale operation
         let (folded_polynomial, mut scaled_domain, folded_evaluations) = Self::fold_polynomial(
             round_state.polynomial.clone(),
             round_state.domain.clone(),
-            self.config.folding_factor,
+            config.folding_factor,
             round_state.folding_randomness,
         );
 
         // Step 2: Generate commitment using a Merkle Tree
         let folded_p_commitment = MerkleTree::<M>::new(
-            &self.config.merkle_leaf_hash_param,
-            &self.config.merkle_two_to_one_param,
+            &config.merkle_leaf_hash_param,
+            &config.merkle_two_to_one_param,
             &folded_evaluations,
         )
         .unwrap();
@@ -164,7 +165,7 @@ where
             Self::get_out_of_domain_evaluations(
                 &mut round_state.sponge,
                 folded_polynomial.clone(),
-                self.config.num_out_of_domain_samples,
+                config.num_out_of_domain_samples,
             );
         round_state.sponge.absorb(&out_of_domain_evaluations);
 
@@ -179,14 +180,14 @@ where
                 round_state.domain,
                 round_state.p_commitment,
                 round_state.p_evaluations,
-                self.config.repetitions[round_state.round_num],
-                self.config.folding_factor,
+                config.repetitions[round_state.round_num],
+                config.folding_factor,
             );
 
         // Step 6: Proof of work
         let proof_of_work_nonce = proof_of_work(
             &mut round_state.sponge,
-            self.config.proof_of_work_bits[round_state.round_num],
+            config.proof_of_work_bits[round_state.round_num],
         );
 
         // Step 7: Squeeze more randomness (used by only verifier)
@@ -198,7 +199,7 @@ where
             folded_polynomial.clone(),
             random_queries,
             out_of_domain_samples,
-            self.config.folding_factor,
+            config.folding_factor,
         );
 
         // Step 7: Compute polynomials
