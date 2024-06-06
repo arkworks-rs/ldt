@@ -13,7 +13,7 @@ use crate::{
     poly_utils,
     stir::{
         config::STIRConfig,
-        proof::{STIRProof, STIRRoundProof},
+        proof::{STIRInnerRoundProof, STIRProof},
     },
     utils::{dedup, proof_of_work_verify, squeeze_integer},
 };
@@ -107,7 +107,7 @@ where
 
         // First we verify all Merkle paths
         let mut current_root = commitment.p_commitment.root();
-        for round_proof in &proof.round_proofs {
+        for round_proof in &proof.inner_round_proofs {
             for (leaf_value, inclusion_proof) in round_proof
                 .leaf_values_of_queries
                 .iter()
@@ -127,7 +127,12 @@ where
             }
             current_root = round_proof.p_commitment_root.clone();
         }
-        for (final_leaf_value, final_inclusion_proof) in proof.final_round_proof.leaf_values_of_queries.iter().zip(proof.final_round_proof.inclusion_proofs_of_queries.iter()) {
+        for (final_leaf_value, final_inclusion_proof) in proof
+            .final_round_proof
+            .leaf_values_of_queries
+            .iter()
+            .zip(proof.final_round_proof.inclusion_proofs_of_queries.iter())
+        {
             if !final_inclusion_proof
                 .verify(
                     &self.config.merkle_leaf_hash_param,
@@ -145,7 +150,6 @@ where
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&commitment.p_commitment.root());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
-        
 
         let domain =
             Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
@@ -163,7 +167,7 @@ where
             folding_randomness,
         };
 
-        for round_proof in &proof.round_proofs {
+        for round_proof in &proof.inner_round_proofs {
             let round_result = self.round(&mut sponge, round_proof, verification_state);
             if round_result.is_none() {
                 return false;
@@ -419,7 +423,7 @@ where
     fn round(
         &self,
         sponge: &mut impl CryptographicSponge,
-        round_proof: &STIRRoundProof<F, M>,
+        round_proof: &STIRInnerRoundProof<F, M>,
         verification_state: VerificationState<F>,
     ) -> Option<VerificationState<F>> {
         // Redo FS

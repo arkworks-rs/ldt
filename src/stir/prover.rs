@@ -13,10 +13,19 @@ use crate::{
     poly_utils,
     stir::{
         config::STIRConfig,
-        proof::{STIRFinalRoundProof, STIRProof, STIRRoundProof},
+        proof::{STIRFinalRoundProof, STIRInnerRoundProof, STIRProof},
     },
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
+
+pub struct STIRRoundState<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+    domain: Domain<F>,
+    polynomial: DensePolynomial<F>,
+    p_commitment: MerkleTree<M>,
+    p_evaluations: Vec<Vec<F>>,
+    folding_randomness: F,
+    sponge: S,
+}
 
 pub struct STIRProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
     config: STIRConfig<M, S>,
@@ -46,24 +55,83 @@ where
     fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
         assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
 
-        // Stuff we're gonna use this round
-        let mut domain = commitment.domain.clone();
-        let mut polynomial = commitment.polynomials[0].clone();
-        let mut p_commitment = commitment.p_commitment.clone();
-        let mut p_evaluations = commitment.p_evaluations.clone();
-        let (mut folding_randomness, mut sponge) = self.sponge_up(p_commitment.root());
+        let round_state = self.generate_round_state_from_commitment(commitment);
+        let (mut final_round_state, inner_round_proofs): (
+            STIRRoundState<F, M, S>,
+            Vec<STIRInnerRoundProof<F, M>>,
+        ) = self.compute_inner_rounds(round_state);
 
+        // let final_round_proof = self.compute_final_round(domain, polynomial, p_commitment, p_evaluations, folding_randomness, sponge);
+
+        let final_polynomial = poly_utils::folding::poly_fold(
+            &final_round_state.polynomial,
+            self.config.folding_factor,
+            final_round_state.folding_randomness,
+        );
+
+        let (_, leaf_values_of_queries, inclusion_proofs_of_queries) = Self::generate_sampling(
+            &mut final_round_state.sponge,
+            final_round_state.domain,
+            final_round_state.p_commitment,
+            final_round_state.p_evaluations,
+            self.config.repetitions[self.config.num_rounds],
+            self.config.folding_factor,
+        );
+
+        let pow_nonce = proof_of_work(
+            &mut final_round_state.sponge,
+            self.config.proof_of_work_bits[self.config.num_rounds],
+        );
+
+        let final_round_proof = STIRFinalRoundProof {
+            polynomial: final_polynomial,
+            leaf_values_of_queries,
+            inclusion_proofs_of_queries,
+            proof_of_work_nonce: pow_nonce,
+        };
+
+        Self::Proof {
+            inner_round_proofs,
+            final_round_proof,
+        }
+    }
+}
+
+impl<F: FftField + PrimeField + Absorb, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge>
+    STIRProver<F, M, S>
+where
+    M::InnerDigest: Absorb,
+{
+    fn generate_round_state_from_commitment(
+        &self,
+        commitment: &Commitment<F, M>,
+    ) -> STIRRoundState<F, M, S> {
+        let mut sponge = S::new(&self.config.sponge_config);
+        sponge.absorb(&commitment.p_commitment.root());
+        let folding_randomness = sponge.squeeze_field_elements(1)[0];
+        STIRRoundState {
+            domain: commitment.domain.clone(),
+            polynomial: commitment.polynomials[0].clone(),
+            p_commitment: commitment.p_commitment.clone(),
+            p_evaluations: commitment.p_evaluations.clone(),
+            folding_randomness,
+            sponge,
+        }
+    }
+    fn compute_inner_rounds(
+        &self,
+        mut round_state: STIRRoundState<F, M, S>,
+    ) -> (STIRRoundState<F, M, S>, Vec<STIRInnerRoundProof<F, M>>) {
         // For each round
-        let mut round_proofs = vec![];
+        let mut inner_round_proofs = vec![];
         for round_num in 0..self.config.num_rounds {
             // 1. perform fold / scale
             let (folded_polynomial, mut scaled_domain, folded_evaluations) = Self::fold_polynomial(
-                polynomial.clone(),
-                domain.clone(),
+                round_state.polynomial.clone(),
+                round_state.domain.clone(),
                 self.config.folding_factor,
-                folding_randomness,
+                round_state.folding_randomness,
             );
-            // used by final round except for domain
 
             // 2. generate commitment
             let folded_p_commitment = MerkleTree::<M>::new(
@@ -73,40 +141,43 @@ where
             )
             .unwrap();
             let folded_p_commitment_root = folded_p_commitment.root();
-            sponge.absorb(&folded_p_commitment_root);
+            round_state.sponge.absorb(&folded_p_commitment_root);
 
             // 3. out of domain sampling
             let (out_of_domain_samples, out_of_domain_evaluations) =
                 Self::get_out_of_domain_evaluations(
-                    &mut sponge,
+                    &mut round_state.sponge,
                     folded_polynomial.clone(),
                     self.config.num_out_of_domain_samples,
                 );
-            sponge.absorb(&out_of_domain_evaluations);
+            round_state.sponge.absorb(&out_of_domain_evaluations);
 
             // TODO is there a reason these occur here rather than immediately before their usage?
             // Proximity generator
-            let comb_randomness: F = sponge.squeeze_field_elements(1)[0];
+            let comb_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
             // Folding randomness for next round_num
-            folding_randomness = sponge.squeeze_field_elements(1)[0];
+            let new_folding_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
 
             // 4. generate challenges and answers
             // The verifier queries the previous oracle at the indexes of L^k (reading the corresponding evals)
             let (random_queries, leaf_values_of_queries, inclusion_proofs_of_queries) =
                 Self::generate_sampling(
-                    &mut sponge,
-                    domain,
-                    p_commitment,
-                    p_evaluations,
+                    &mut round_state.sponge,
+                    round_state.domain,
+                    round_state.p_commitment,
+                    round_state.p_evaluations,
                     self.config.repetitions[round_num],
                     self.config.folding_factor,
                 ); // used by final round
 
             // 5. Proof of work
-            let pow_nonce = proof_of_work(&mut sponge, self.config.proof_of_work_bits[round_num]); // used by final round
+            let pow_nonce = proof_of_work(
+                &mut round_state.sponge,
+                self.config.proof_of_work_bits[round_num],
+            ); // used by final round
 
             // Not used
-            let _shake_randomness: F = sponge.squeeze_field_elements(1)[0];
+            let _shake_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
 
             // 6. Generate quotient set and answers
             let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
@@ -125,16 +196,15 @@ where
                     folded_polynomial,
                     comb_randomness,
                 );
-            domain = scaled_domain;
-            polynomial = witness_polynomial;
-            p_commitment = folded_p_commitment;
-            p_evaluations = folded_evaluations;
-            folding_randomness = folding_randomness;
+            round_state.domain = scaled_domain;
+            round_state.polynomial = witness_polynomial;
+            round_state.p_commitment = folded_p_commitment;
+            round_state.p_evaluations = folded_evaluations;
+            round_state.folding_randomness = new_folding_randomness;
 
-            round_proofs.push(STIRRoundProof {
+            inner_round_proofs.push(STIRInnerRoundProof {
                 p_commitment_root: folded_p_commitment_root,
                 out_of_domain_evaluations,
-                // queries_to_prev,
                 leaf_values_of_queries,
                 inclusion_proofs_of_queries,
                 answer_polynomial,
@@ -142,51 +212,7 @@ where
                 proof_of_work_nonce: pow_nonce,
             });
         }
-
-        let final_polynomial = poly_utils::folding::poly_fold(
-            &polynomial,
-            self.config.folding_factor,
-            folding_randomness,
-        );
-
-        let (_, leaf_values_of_queries, inclusion_proofs_of_queries) = Self::generate_sampling(
-            &mut sponge,
-            domain,
-            p_commitment,
-            p_evaluations,
-            self.config.repetitions[self.config.num_rounds],
-            self.config.folding_factor,
-        );
-
-        let pow_nonce = proof_of_work(
-            &mut sponge,
-            self.config.proof_of_work_bits[self.config.num_rounds],
-        );
-
-        Self::Proof {
-            round_proofs,
-            final_round_proof: STIRFinalRoundProof {
-                polynomial: final_polynomial,
-                leaf_values_of_queries,
-                inclusion_proofs_of_queries,
-                proof_of_work_nonce: pow_nonce,
-            }
-        }
-    }
-}
-
-impl<F: FftField + PrimeField + Absorb, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge>
-    STIRProver<F, M, S>
-where
-    M::InnerDigest: Absorb,
-{
-    fn is_final_round(&self, current_round: usize) -> bool {
-        current_round == self.config.num_rounds
-    }
-    fn sponge_up(&self, digest: M::InnerDigest) -> (F, S) {
-        let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&digest);
-        (sponge.squeeze_field_elements(1)[0], sponge)
+        return (round_state, inner_round_proofs);
     }
     fn get_leaf_values_from_queries(queries: Vec<usize>, evaluations: Vec<Vec<F>>) -> Vec<Vec<F>> {
         queries
@@ -293,27 +319,31 @@ where
         polynomial: DensePolynomial<F>,
         comb_randomness: F,
     ) -> (DensePolynomial<F>, DensePolynomial<F>, DensePolynomial<F>) {
+        // Perform naive interpolation to get the answer polynomial
         let answer_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
 
+        // Initialize shake_polynomial as an empty polynomial
         let mut shake_polynomial = DensePolynomial::from_coefficients_vec(vec![]);
-        for (x, y) in quotient_answers {
+        for (x, y) in &quotient_answers {
             let num_polynomial =
-                &answer_polynomial - &DensePolynomial::from_coefficients_vec(vec![y]);
-            let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-x, F::ONE]);
+                &answer_polynomial - &DensePolynomial::from_coefficients_vec(vec![*y]);
+            let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-*x, F::ONE]);
             shake_polynomial = shake_polynomial + (&num_polynomial / &den_polynomial);
         }
 
-        // The quotient polynomial is then computed
+        // Compute the quotient polynomial
         let quotient_polynomial = poly_utils::quotient::poly_quotient(&polynomial, &quotient_set);
 
-        // This is the polynomial 1 + r * x + r^2 * x^2 + ... + r^n * x^n where n = |quotient_set|
+        // Compute the scaling polynomial: 1 + r * x + r^2 * x^2 + ... + r^n * x^n
         let scaling_polynomial = DensePolynomial::from_coefficients_vec(
-            (0..quotient_set.len() + 1)
+            (0..=quotient_set.len())
                 .map(|i| comb_randomness.pow([i as u64]))
                 .collect(),
         );
 
+        // Compute the witness polynomial
         let witness_polynomial = &quotient_polynomial * &scaling_polynomial;
+
         (answer_polynomial, shake_polynomial, witness_polynomial)
     }
 }
