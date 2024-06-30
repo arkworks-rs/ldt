@@ -5,7 +5,7 @@ use ark_crypto_primitives::{
 
 pub struct DirectConfig<M: MerkleConfig, S: CryptographicSponge> {
     pub degree: usize,
-    pub num_queries: usize,
+    pub num_challenges: usize,
     pub merkle_leaf_hash_param: LeafParam<M>,
     pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub sponge_config: S::Config,
@@ -14,14 +14,14 @@ pub struct DirectConfig<M: MerkleConfig, S: CryptographicSponge> {
 impl<M: MerkleConfig, S: CryptographicSponge> DirectConfig<M, S> {
     pub fn new(
         degree: usize,
-        num_queries: usize,
+        num_challenges: usize,
         merkle_leaf_hash_param: LeafParam<M>,
         merkle_two_to_one_param: TwoToOneParam<M>,
         sponge_config: S::Config,
     ) -> Self {
         DirectConfig {
             degree,
-            num_queries,
+            num_challenges,
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             sponge_config,
@@ -38,7 +38,7 @@ where
     fn clone(&self) -> Self {
         DirectConfig {
             degree: self.degree,
-            num_queries: self.num_queries,
+            num_challenges: self.num_challenges,
             merkle_leaf_hash_param: self.merkle_leaf_hash_param.clone(),
             merkle_two_to_one_param: self.merkle_two_to_one_param.clone(),
             sponge_config: self.sponge_config.clone(),

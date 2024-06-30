@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, Path},
+    merkle_tree::Config as MerkleConfig,
     sponge::{Absorb, CryptographicSponge},
 };
 
@@ -7,10 +7,9 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Commitment,
+    argument::{Argument, SingleArgument},
     direct::{config::DirectConfig, proof::DirectProof},
     ldt::Prover,
-    utils::squeeze_integer,
 };
 
 pub struct DirectProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
@@ -24,8 +23,8 @@ impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Prover
 where
     M::InnerDigest: Absorb,
 {
+    type Argument = SingleArgument<F, M, S>;
     type Config = DirectConfig<M, S>;
-    type Commitment = Commitment<F, M>;
     type Proof = DirectProof<F, M>;
 
     fn new(config: DirectConfig<M, S>) -> Self {
@@ -36,25 +35,13 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
-        // absorb committment
-        let p_commitment_root: M::InnerDigest = commitment.p_commitment.root();
-        let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&p_commitment_root);
-        // squeeze out queries
-        let mut queries: Vec<usize> = Vec::with_capacity(self.config.num_queries);
-        for _ in 0..self.config.num_queries {
-            queries.push(squeeze_integer(&mut sponge, 32));
-        }
-        // get the openings
-        let mut inclusion_proofs: Vec<Path<M>> = Vec::with_capacity(self.config.num_queries);
-        for query in queries {
-            inclusion_proofs.push(commitment.p_commitment.generate_proof(query).unwrap());
-        }
+    fn prove(&self, argument: &Self::Argument) -> Self::Proof {
+        let challenges = argument.generate_challenges();
+        let challenge_answers = argument.generate_challenge_answers(challenges);
         Self::Proof {
-            p_commitment_root,
-            p_evaluations: commitment.p_evaluations.clone(),
-            inclusion_proofs,
+            commitment_digest: argument.commitment.root(),
+            committed_values: argument.committed_values.clone(),
+            challenge_answers: challenge_answers,
         }
     }
 }

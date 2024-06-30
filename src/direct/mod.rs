@@ -12,6 +12,7 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
+        argument::SingleArgument,
         commitment::Commitment,
         crypto::{fields::Field256, fs, merkle_tree},
         direct::{config::DirectConfig, ldt::DirectLDT},
@@ -30,7 +31,7 @@ mod tests {
             merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
         let config: DirectConfig<TestMerkleConfig, TestSpongeConfig> = DirectConfig {
             degree: 22,
-            num_queries: 2,
+            num_challenges: 2,
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             sponge_config: fs::poseidon::default_fs_config::<Field256>(),
@@ -51,8 +52,16 @@ mod tests {
             vec![polynomial],
         );
 
+        let argument: SingleArgument<TestField, TestMerkleConfig, TestSpongeConfig> =
+            SingleArgument::<TestField, TestMerkleConfig, TestSpongeConfig> {
+                commitment: commitment.p_commitment.clone(),
+                committed_values: commitment.p_evaluations.clone(),
+                num_challenges: config.num_challenges,
+                sponge_config: config.sponge_config,
+            };
+
         // prove
-        let direct_proof = prover.prove(&commitment);
+        let direct_proof = prover.prove(&argument);
 
         // verify
         assert_eq!(verifier.verify(&direct_proof), true);
