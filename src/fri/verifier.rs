@@ -28,7 +28,6 @@ where
     M::InnerDigest: Absorb,
 {
     type Config = FRIConfig<M, S>;
-    type Commitment = Commitment<F, M>;
     type Proof = FRIProof<F, M>;
     fn new(config: FRIConfig<M, S>) -> Self {
         Self {

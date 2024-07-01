@@ -12,10 +12,10 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        commitment::Commitment,
         crypto::{fields::Field256, fs, merkle_tree},
         fri::{config::FRIConfig, ldt::FRI},
         ldt::{LowDegreeTest, Prover, Verifier},
+        witness::SingleWitness,
     };
 
     type TestField = Field256;
@@ -44,21 +44,12 @@ mod tests {
             FRI::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
 
         // generate random witness
-        let polynomial = DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng);
+        let witness = SingleWitness {
+            polynomial: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
+        };
 
-        // commit
-        let commitment = Commitment::<Field256, TestMerkleConfig>::new(
-            config.starting_degree,
-            config.starting_rate,
-            config.folding_factor,
-            config.merkle_leaf_hash_param.clone(),
-            config.merkle_two_to_one_param.clone(),
-            vec![polynomial],
-        );
-
-    
         // prove
-        let fri_proof = prover.prove(&commitment);
+        let fri_proof = prover.prove(witness);
 
         // verify
         assert_eq!(verifier.verify(&fri_proof), true);

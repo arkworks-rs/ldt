@@ -9,6 +9,7 @@ pub trait Witness<F: FftField> {
         domain: Domain<F>,
         folding_factor: usize,
     ) -> Vec<Vec<F>>;
+    fn polynomial(&self) -> DensePolynomial<F>;
 }
 
 pub struct SingleWitness<F: FftField> {
@@ -26,5 +27,8 @@ impl<F: FftField> Witness<F> for SingleWitness<F> {
             .evaluate_over_domain_by_ref(domain.backing_domain)
             .evals;
         stack_evaluations(evals, folding_factor)
+    }
+    fn polynomial(&self) -> DensePolynomial<F> {
+        self.polynomial.clone()
     }
 }

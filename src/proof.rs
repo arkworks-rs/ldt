@@ -4,11 +4,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::FftField;
 
-use crate::{
-    domain::Domain,
-    utils::squeeze_integer,
-    witness::Witness,
-};
+use crate::{domain::Domain, utils::squeeze_integer, witness::Witness};
 
 pub fn generate_challenges<F: FftField, S: CryptographicSponge>(
     commitment_digest: impl Absorb,
@@ -91,7 +87,7 @@ where
         // generate challenges
         let challenges =
             generate_challenges::<F, S>(commitment.root(), num_challenges, &sponge_config);
-        
+
         // generate challenge answers
         let challenge_answers = generate_challenge_answers::<F, M>(commitment.clone(), challenges);
 
