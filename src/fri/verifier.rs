@@ -9,7 +9,6 @@ use ark_poly::{EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Commitment,
     domain::Domain,
     fri::{config::FRIConfig, proof::FRIProof},
     ldt::Verifier,

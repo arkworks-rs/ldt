@@ -7,7 +7,6 @@ use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain,
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Commitment,
     domain::Domain,
     ldt::Prover,
     poly_utils,
@@ -16,6 +15,7 @@ use crate::{
         proof::{STIRFinalRoundProof, STIRInnerRoundProof, STIRProof},
     },
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    witness::Witness,
 };
 
 pub struct STIRRoundState<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
@@ -41,7 +41,6 @@ where
     M::InnerDigest: Absorb,
 {
     type Config = STIRConfig<M, S>;
-    type Commitment = Commitment<F, M>;
     type Proof = STIRProof<F, M>;
 
     fn new(config: STIRConfig<M, S>) -> Self {
@@ -53,12 +52,36 @@ where
         }
     }
 
-    fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
-        assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
+    fn prove(&self, witness: impl Witness<F>) -> Self::Proof {
+        assert!(witness.polynomial().degree() < self.config.starting_degree);
+
+        // get evaluations over a domain
+        let domain: Domain<F> =
+            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
+        // let evals: Vec<F> = polynomials[0]
+        //     .evaluate_over_domain_by_ref(domain.backing_domain)
+        //     .evals;
+        // let p_evaluations: Vec<Vec<F>> = utils::stack_evaluations(evals, folding_factor);
+        let committed_values =
+            witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
+
+        // generate the committment
+        let p_commitment = MerkleTree::<M>::new(
+            &self.config.merkle_leaf_hash_param,
+            &self.config.merkle_two_to_one_param,
+            &committed_values,
+        )
+        .unwrap();
 
         // Step 1: get initial state of the protocol
         let mut current_round_state: STIRRoundState<F, M, S> =
-            Self::get_round_state_from_commitment(&self.config.sponge_config, commitment);
+            Self::get_round_state_from_commitment(
+                &p_commitment,
+                committed_values,
+                &domain,
+                witness.polynomial(),
+                &self.config.sponge_config,
+            );
 
         // Step 2: compute inner rounds
         let mut inner_round_proofs: Vec<STIRInnerRoundProof<F, M>> =
@@ -75,7 +98,7 @@ where
 
         // Boom.
         Self::Proof {
-            initial_p_commitment_root: commitment.p_commitment.root(),
+            initial_p_commitment_root: p_commitment.root(),
             inner_round_proofs,
             final_round_proof,
         }
@@ -88,17 +111,20 @@ where
     M::InnerDigest: Absorb,
 {
     fn get_round_state_from_commitment(
+        commitment: &MerkleTree<M>,
+        committed_values: Vec<Vec<F>>,
+        domain: &Domain<F>,
+        polynomial: DensePolynomial<F>,
         sponge_config: &S::Config,
-        commitment: &Commitment<F, M>,
     ) -> STIRRoundState<F, M, S> {
         let mut sponge = S::new(sponge_config);
-        sponge.absorb(&commitment.p_commitment.root());
+        sponge.absorb(&commitment.root());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
         STIRRoundState {
-            domain: commitment.domain.clone(),
-            polynomial: commitment.polynomials[0].clone(),
-            p_commitment: commitment.p_commitment.clone(),
-            p_evaluations: commitment.p_evaluations.clone(),
+            domain: domain.clone(),
+            polynomial: polynomial.clone(),
+            p_commitment: commitment.clone(),
+            p_evaluations: committed_values.clone(),
             folding_randomness,
             round_num: 0,
             sponge,

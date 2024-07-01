@@ -13,10 +13,8 @@ mod tests {
     use crate::{
         crypto::{fields::Field256, fs, merkle_tree},
         direct::{config::DirectConfig, ldt::DirectLDT},
-        domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
-        utils::stack_evaluations,
-        witness::{SingleWitness, Witness},
+        witness::SingleWitness,
     };
 
     type TestField = Field256;

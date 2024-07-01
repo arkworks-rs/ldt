@@ -7,7 +7,6 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Commitment,
     domain::Domain,
     ldt::Verifier,
     poly_utils,
@@ -90,7 +89,6 @@ where
     M::InnerDigest: Absorb,
 {
     type Config = STIRConfig<M, S>;
-    type Commitment = Commitment<F, M>;
     type Proof = STIRProof<F, M>;
 
     fn new(config: STIRConfig<M, S>) -> Self {
