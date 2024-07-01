@@ -7,10 +7,9 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    direct::{
-        config::DirectConfig, proof::DirectProof, prover::DirectProver, verifier::DirectVerifier,
-    },
+    direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},
     ldt::{LowDegreeTest, Prover, Verifier},
+    proof::SingleProof,
 };
 
 pub struct DirectLDT<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
@@ -25,7 +24,7 @@ where
     S::Config: Clone,
 {
     type Config = DirectConfig<M, S>;
-    type Proof = DirectProof<F, M>;
+    type Proof = SingleProof<F, M, S>;
     type Prover = DirectProver<F, M, S>;
     type Verifier = DirectVerifier<F, M, S>;
 

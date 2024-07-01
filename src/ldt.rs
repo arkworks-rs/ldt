@@ -1,10 +1,12 @@
 use ark_ff::FftField;
+
+use crate::witness::Witness;
+
 pub trait Prover<F: FftField> {
-    type Argument;
     type Config;
     type Proof;
     fn new(config: Self::Config) -> Self;
-    fn prove(&self, argument: &Self::Argument) -> Self::Proof;
+    fn prove(&self, argument: impl Witness<F>) -> Self::Proof;
 }
 pub trait Verifier<F: FftField> {
     type Config;

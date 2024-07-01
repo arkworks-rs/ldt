@@ -56,6 +56,7 @@ mod tests {
             vec![polynomial],
         );
 
+    
         // prove
         let fri_proof = prover.prove(&commitment);
 

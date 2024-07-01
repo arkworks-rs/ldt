@@ -1,6 +1,5 @@
 pub mod config;
 pub mod ldt;
-pub mod proof;
 pub mod prover;
 pub mod verifier;
 
@@ -12,11 +11,12 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        argument::SingleArgument,
-        commitment::Commitment,
         crypto::{fields::Field256, fs, merkle_tree},
         direct::{config::DirectConfig, ldt::DirectLDT},
+        domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
+        utils::stack_evaluations,
+        witness::{SingleWitness, Witness},
     };
 
     type TestField = Field256;
@@ -39,29 +39,13 @@ mod tests {
         let (prover, verifier) =
             DirectLDT::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
 
-        // generate random witness
-        let polynomial = DensePolynomial::<Field256>::rand(config.degree, &mut rng);
-
-        // commit
-        let commitment = Commitment::<TestField, TestMerkleConfig>::new(
-            config.degree.clone(),
-            0,
-            1,
-            config.merkle_leaf_hash_param.clone(),
-            config.merkle_two_to_one_param.clone(),
-            vec![polynomial],
-        );
-
-        let argument: SingleArgument<TestField, TestMerkleConfig, TestSpongeConfig> =
-            SingleArgument::<TestField, TestMerkleConfig, TestSpongeConfig> {
-                commitment: commitment.p_commitment.clone(),
-                committed_values: commitment.p_evaluations.clone(),
-                num_challenges: config.num_challenges,
-                sponge_config: config.sponge_config,
-            };
+        // generate witness
+        let witness = SingleWitness {
+            polynomial: DensePolynomial::<Field256>::rand(config.degree, &mut rng),
+        };
 
         // prove
-        let direct_proof = prover.prove(&argument);
+        let direct_proof = prover.prove(witness);
 
         // verify
         assert_eq!(verifier.verify(&direct_proof), true);

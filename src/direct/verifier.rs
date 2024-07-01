@@ -6,9 +6,9 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    argument::generate_challenges,
-    direct::{config::DirectConfig, proof::DirectProof},
+    direct::config::DirectConfig,
     ldt::Verifier,
+    proof::{Proof, SingleProof},
 };
 
 pub struct DirectVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
@@ -23,7 +23,7 @@ where
     M::InnerDigest: Absorb,
 {
     type Config = DirectConfig<M, S>;
-    type Proof = DirectProof<F, M>;
+    type Proof = SingleProof<F, M, S>;
 
     fn new(config: DirectConfig<M, S>) -> Self {
         Self {
@@ -34,35 +34,6 @@ where
         }
     }
     fn verify(&self, proof: &Self::Proof) -> bool {
-        // absorb the digest to derive the challenges
-        let challenges = generate_challenges::<F, S>(
-            proof.commitment_digest.clone(),
-            self.config.num_challenges,
-            &self.config.sponge_config,
-        );
-
-        // then verify each challenge
-        for (&challenge, answer) in challenges.iter().zip(proof.challenge_answers.clone()) {
-            // the answer given should correspond to the correct challenge
-            if !answer.leaf_index == challenge {
-                return false;
-            }
-
-            // the proof should be valid with the given value against the digest
-            if !answer
-                .verify(
-                    &self.config.merkle_leaf_hash_param,
-                    &self.config.merkle_two_to_one_param,
-                    &proof.commitment_digest,
-                    proof.committed_values[challenge].clone(),
-                )
-                .unwrap()
-            {
-                return false;
-            }
-        }
-
-        // verification is accepted
-        true
+        proof.verify()
     }
 }

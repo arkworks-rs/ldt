@@ -7,14 +7,10 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Commitment,
-    fri::{
+    argument::{Argument, SingleArgument}, commitment::Commitment, fri::{
         config::FRIConfig,
         proof::{FRIProof, FRIRoundProof},
-    },
-    ldt::Prover,
-    poly_utils,
-    utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    }, ldt::Prover, poly_utils, utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations}
 };
 
 pub struct FRIProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
@@ -29,8 +25,8 @@ impl<F: FftField + PrimeField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicS
 where
     M::InnerDigest: Absorb,
 {
+    type Argument = SingleArgument<F, M, S>;
     type Config = FRIConfig<M, S>;
-    type Commitment = Commitment<F, M>;
     type Proof = FRIProof<F, M>;
 
     fn new(config: FRIConfig<M, S>) -> Self {
@@ -41,12 +37,12 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn prove(&self, commitment: &Self::Commitment) -> Self::Proof {
+    fn prove(&self, argument: &Self::Argument) -> Self::Proof {
         // TODO fix this
         // assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
 
         let mut sponge: S = S::new(&self.config.sponge_config);
-        sponge.absorb(&commitment.p_commitment.root());
+        sponge.absorb(&argument.commitment_digest());
 
         let mut g_domain: crate::domain::Domain<F> = commitment.domain.clone();
         let mut g_poly: DensePolynomial<F> = commitment.polynomials[0].clone();
