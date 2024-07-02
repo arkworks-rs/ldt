@@ -15,7 +15,7 @@ use crate::{
         proof::{STIRFinalRoundProof, STIRInnerRoundProof, STIRProof},
     },
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
-    witness::Witness,
+    commitment::Witness,
 };
 
 pub struct STIRRoundState<F: FftField, M: MerkleConfig, S: CryptographicSponge> {

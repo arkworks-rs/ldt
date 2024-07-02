@@ -1,50 +1,54 @@
-use ark_crypto_primitives::{
-    merkle_tree::Config as MerkleConfig,
-    sponge::{Absorb, CryptographicSponge},
-};
+use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 
 use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
+    commitment::Witness,
     direct::config::DirectConfig,
     ldt::Prover,
     proof::{Proof, SingleProof},
-    witness::Witness,
 };
 
-pub struct DirectProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
-    config: DirectConfig<M, S>,
+pub struct DirectProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
+where
+    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
+{
+    config: DirectConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<M>,
+    _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Prover<F>
-    for DirectProver<F, M, S>
+impl<F: FftField, S: CryptographicSponge, W: Witness<F>> Prover<F> for DirectProver<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    <W as Witness<F>>::ChallengeAnswers: Clone,
+    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
+    <<W as Witness<F>>::MerkleConfig as ark_crypto_primitives::merkle_tree::Config>::InnerDigest:
+        Absorb,
     S::Config: Clone,
+    W: Clone,
 {
-    type Config = DirectConfig<M, S>;
-    type Proof = SingleProof<F, M, S>;
+    type Witness = W;
+    type Config = DirectConfig<W::MerkleConfig, S>;
+    type Proof = SingleProof<F, S, W>;
 
-    fn new(config: DirectConfig<M, S>) -> Self {
+    fn new(config: DirectConfig<W::MerkleConfig, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<M>,
+            _merkle_config: PhantomData::<W::MerkleConfig>,
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn prove(&self, witness: impl Witness<F>) -> Self::Proof {
-        Self::Proof::new(
+    fn prove(&self, witness: &W) -> Self::Proof {
+        <Self::Proof as Proof<F, S, W>>::new(
             self.config.merkle_leaf_hash_param.clone(),
             self.config.merkle_two_to_one_param.clone(),
             self.config.num_challenges,
             self.config.sponge_config.clone(),
             self.config.degree,
             1,
-            witness,
+            witness.clone(),
         )
     }
 }

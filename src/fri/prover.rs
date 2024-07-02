@@ -15,7 +15,7 @@ use crate::{
     ldt::Prover,
     poly_utils,
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
-    witness::Witness,
+    commitment::Witness,
 };
 
 pub struct FRIProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {

@@ -1,136 +1,74 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, LeafParam, MerkleTree, Path, TwoToOneParam},
+    merkle_tree::{Config as MerkleConfig, LeafParam, TwoToOneParam},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
 
-use crate::{domain::Domain, utils::squeeze_integer, witness::Witness};
+use crate::commitment::Witness;
 
-pub fn generate_challenges<F: FftField, S: CryptographicSponge>(
-    commitment_digest: impl Absorb,
-    num_challenges: usize,
-    sponge_config: &S::Config,
-) -> Vec<usize> {
-    // absorb committment digest
-    let mut sponge = S::new(&sponge_config);
-    sponge.absorb(&commitment_digest);
-    // squeeze out the challenges as indices
-    let mut challenges: Vec<usize> = Vec::with_capacity(num_challenges);
-    for _ in 0..num_challenges {
-        challenges.push(squeeze_integer(&mut sponge, 32)); // TODO (z-tech): this range must be set properly
-    }
-    // return as vec of usizes
-    challenges
-}
-
-pub fn generate_challenge_answers<F: FftField, M: MerkleConfig>(
-    commitment: MerkleTree<M>,
-    challenges: Vec<usize>,
-) -> Vec<Path<M>> {
-    let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(challenges.len());
-    for challenge in challenges {
-        challenge_answers.push(commitment.generate_proof(challenge).unwrap());
-    }
-    challenge_answers
-}
-
-pub trait Proof<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+pub trait Proof<F: FftField, S: CryptographicSponge, W: Witness<F>>
+where
+    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
+{
     fn new(
-        merkle_leaf_hash_param: LeafParam<M>,
-        merkle_two_to_one_param: TwoToOneParam<M>,
+        merkle_leaf_hash_param: LeafParam<W::MerkleConfig>,
+        merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
         num_challenges: usize,
         sponge_config: <S as CryptographicSponge>::Config,
         starting_degree: usize,
         starting_rate: usize,
-        witness: impl Witness<F>,
+        witness: W,
     ) -> Self;
     fn verify(&self) -> bool;
 }
 
-pub struct SingleProof<F: FftField, M: MerkleConfig, S: CryptographicSponge>
+pub struct SingleProof<F: FftField, S: CryptographicSponge, W: Witness<F>>
 where
-    M::InnerDigest: Absorb,
+    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
 {
-    commitment_digest: M::InnerDigest,
-    committed_values: Vec<Vec<F>>,
-    challenge_answers: Vec<Path<M>>,
-    merkle_leaf_hash_param: LeafParam<M>,
-    merkle_two_to_one_param: TwoToOneParam<M>,
-    num_challenges: usize,
-    sponge_config: S::Config,
+    pub commitment_digest: <<W as Witness<F>>::MerkleConfig as MerkleConfig>::InnerDigest,
+    pub committed_values: W::CommittedValues,
+    pub challenge_answers: W::ChallengeAnswers,
+    pub merkle_leaf_hash_param: LeafParam<W::MerkleConfig>,
+    pub merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
+    pub num_challenges: usize,
+    pub sponge_config: S::Config,
+    pub witness: W,
 }
 
-impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Proof<F, M, S>
-    for SingleProof<F, M, S>
+impl<F: FftField, S: CryptographicSponge, W: Witness<F>> Proof<F, S, W> for SingleProof<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
+    <<W as Witness<F>>::MerkleConfig as ark_crypto_primitives::merkle_tree::Config>::InnerDigest:
+        Absorb,
+    <W as Witness<F>>::ChallengeAnswers: Clone,
 {
     fn new(
-        merkle_leaf_hash_param: LeafParam<M>,
-        merkle_two_to_one_param: TwoToOneParam<M>,
+        merkle_leaf_hash_param: LeafParam<W::MerkleConfig>,
+        merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
         num_challenges: usize,
         sponge_config: <S as CryptographicSponge>::Config,
         starting_degree: usize,
         starting_rate: usize,
-        witness: impl Witness<F>,
+        witness: W,
     ) -> Self {
-        // commit to the witness
-        let domain = Domain::<F>::new(starting_degree, starting_rate).unwrap();
-        let committed_values = witness.folded_evaluations_over_domain(domain, 1);
-        let commitment = MerkleTree::<M>::new(
-            &merkle_leaf_hash_param,
-            &merkle_two_to_one_param,
-            &committed_values,
-        )
-        .unwrap();
-
-        // generate challenges
-        let challenges =
-            generate_challenges::<F, S>(commitment.root(), num_challenges, &sponge_config);
-
-        // generate challenge answers
-        let challenge_answers = generate_challenge_answers::<F, M>(commitment.clone(), challenges);
+        let challenges = witness.challenges(num_challenges);
+        let mut challenge_answers = witness.challenge_answers(challenges);
 
         Self {
-            commitment_digest: commitment.root(),
-            committed_values,
+            commitment_digest: witness.commitment_digest(),
+            committed_values: witness.committed_values(),
             challenge_answers,
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             num_challenges,
             sponge_config,
+            witness,
         }
     }
     fn verify(&self) -> bool {
-        // absorb the digest to derive the challenges
-        let challenges = generate_challenges::<F, S>(
-            self.commitment_digest.clone(),
-            self.num_challenges,
-            &self.sponge_config,
-        );
-
-        // then verify each challenge
-        for (&challenge, answer) in challenges.iter().zip(self.challenge_answers.clone()) {
-            // the answer given should correspond to the correct challenge
-            if !answer.leaf_index == challenge {
-                return false;
-            }
-
-            // the proof should be valid with the given value against the digest
-            if !answer
-                .verify(
-                    &self.merkle_leaf_hash_param,
-                    &self.merkle_two_to_one_param,
-                    &self.commitment_digest,
-                    self.committed_values[challenge].clone(),
-                )
-                .unwrap()
-            {
-                return false;
-            }
-        }
-
-        // verification is accepted
-        true
+        let challenges = self.witness.challenges(self.num_challenges);
+        self.witness
+            .verify(challenges, self.challenge_answers.clone())
     }
 }

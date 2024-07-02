@@ -15,7 +15,7 @@ mod tests {
         crypto::{fields::Field256, fs, merkle_tree},
         fri::{config::FRIConfig, ldt::FRI},
         ldt::{LowDegreeTest, Prover, Verifier},
-        witness::SingleWitness,
+        commitment::SingleWitness,
     };
 
     type TestField = Field256;
