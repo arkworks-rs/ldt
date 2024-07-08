@@ -9,10 +9,16 @@ use ark_poly::{EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness, domain::Domain, fri::{config::FRIConfig, proof::FRIProof}, ldt::Verifier, poly_utils, utils::{dedup, proof_of_work_verify, squeeze_integer}
+    commitment::Witness,
+    domain::Domain,
+    fri::{config::FRIConfig, proof::FRIProof},
+    ldt::Verifier,
+    poly_utils,
+    utils::{dedup, proof_of_work_verify, squeeze_integer},
 };
 pub struct FRIVerifier<F: FftField, S: CryptographicSponge, W: Witness<F>>
-where W::MerkleConfig: MerkleConfig,
+where
+    W::MerkleConfig: MerkleConfig,
 {
     config: FRIConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,

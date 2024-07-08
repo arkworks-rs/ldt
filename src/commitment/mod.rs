@@ -1,5 +1,6 @@
 use ark_crypto_primitives::merkle_tree::Config as MerkleConfig;
 use ark_ff::FftField;
+use ark_poly::univariate::DensePolynomial;
 
 pub mod single;
 
@@ -16,7 +17,6 @@ pub mod single;
 
 pub trait Witness<F: FftField> {
     type Argument;
-    type Coeff;
     type Commitment;
     type Challenges;
     type ChallengeAnswers;
@@ -24,7 +24,7 @@ pub trait Witness<F: FftField> {
     type MerkleConfig;
 
     fn new(argument: Self::Argument) -> Self;
-    fn coeff(&self) -> Self::Coeff;
+    fn coeff(&self) -> DensePolynomial<F>;
     fn commitment(&self) -> Self::Commitment;
     fn commitment_digest(
         &self,

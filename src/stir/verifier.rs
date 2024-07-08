@@ -7,14 +7,10 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2
 use ark_std::marker::PhantomData;
 
 use crate::{
-    domain::Domain,
-    ldt::Verifier,
-    poly_utils,
-    stir::{
+    commitment::Witness, domain::Domain, ldt::Verifier, poly_utils, stir::{
         config::STIRConfig,
         proof::{STIRInnerRoundProof, STIRProof},
-    },
-    utils::{dedup, proof_of_work_verify, squeeze_integer},
+    }, utils::{dedup, proof_of_work_verify, squeeze_integer}
 };
 
 #[derive(Debug)]
@@ -77,25 +73,31 @@ impl<F: FftField> VerificationState<F> {
     }
 }
 
-pub struct STIRVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
-    config: STIRConfig<M, S>,
+pub struct STIRVerifier<F: FftField, S: CryptographicSponge, W: Witness<F>>
+where W::MerkleConfig: MerkleConfig,
+{
+    config: STIRConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<M>,
+    _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField + Absorb, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge>
-    Verifier<F> for STIRVerifier<F, M, S>
+impl<F: FftField  + PrimeField, S: CryptographicSponge, W: Witness<F>>
+    Verifier<F> for STIRVerifier<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    S::Config: Clone,
+    W: Clone,
+    W::ChallengeAnswers: Clone,
+    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
+    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
-    type Config = STIRConfig<M, S>;
-    type Proof = STIRProof<F, M>;
+    type Config = STIRConfig<W::MerkleConfig, S>;
+    type Proof = STIRProof<F, W::MerkleConfig>;
 
-    fn new(config: STIRConfig<M, S>) -> Self {
+    fn new(config: STIRConfig<W::MerkleConfig, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<M>,
+            _merkle_config: PhantomData::<W::MerkleConfig>,
             _sponge_config: PhantomData::<S>,
         }
     }
@@ -204,10 +206,14 @@ where
     }
 }
 
-impl<F: FftField + PrimeField + Absorb, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge>
-    STIRVerifier<F, M, S>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
+    STIRVerifier<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    S::Config: Clone,
+    W: Clone,
+    W::ChallengeAnswers: Clone,
+    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
+    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
     fn compute_folded_evaluations(
         &self,
@@ -422,7 +428,7 @@ where
     fn round(
         &self,
         sponge: &mut impl CryptographicSponge,
-        round_proof: &STIRInnerRoundProof<F, M>,
+        round_proof: &STIRInnerRoundProof<F, W::MerkleConfig>,
         verification_state: VerificationState<F>,
     ) -> Option<VerificationState<F>> {
         // Redo FS

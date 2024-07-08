@@ -43,7 +43,6 @@ where
     S::Config: Clone,
 {
     type Argument = SingleWitnessArgument<F, M, S>;
-    type Coeff = DensePolynomial<F>;
     type Commitment = MerkleTree<M>;
     type CommittedValues = Vec<Vec<F>>;
     type Challenges = Vec<usize>;

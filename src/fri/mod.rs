@@ -15,7 +15,11 @@ mod tests {
         commitment::{
             single::{SingleWitness, SingleWitnessArgument},
             Witness,
-        }, crypto::{fields::Field256, fs, merkle_tree}, domain::Domain, fri::{config::FRIConfig, ldt::FRI}, ldt::{LowDegreeTest, Prover, Verifier}
+        },
+        crypto::{fields::Field256, fs, merkle_tree},
+        domain::Domain,
+        fri::{config::FRIConfig, ldt::FRI},
+        ldt::{LowDegreeTest, Prover, Verifier},
     };
 
     type TestField = Field256;
@@ -33,8 +37,8 @@ mod tests {
             folding_factor: 2,
             num_rounds: 4,
             num_queries: 8,
-            merkle_leaf_hash_param,
-            merkle_two_to_one_param,
+            merkle_leaf_hash_param: merkle_leaf_hash_param.clone(),
+            merkle_two_to_one_param: merkle_two_to_one_param.clone(),
             proof_of_work_bits: 8,
             repetitions: 4,
             sponge_config: fs::poseidon::default_fs_config::<Field256>(),

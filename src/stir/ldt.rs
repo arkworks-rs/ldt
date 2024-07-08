@@ -6,25 +6,29 @@ use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    ldt::{LowDegreeTest, Prover, Verifier},
-    stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
+    commitment::Witness, ldt::{LowDegreeTest, Prover, Verifier}, stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier}
 };
 
-pub struct STIR<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+pub struct STIR<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
+
+{
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<M>,
+    _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField + Absorb, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge>
-    LowDegreeTest<F> for STIR<F, M, S>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
+    LowDegreeTest<F> for STIR<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    W: Clone,
+    W::ChallengeAnswers: Clone,
+    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
+    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
     S::Config: Clone,
 {
-    type Config = STIRConfig<M, S>;
-    type Proof = STIRProof<F, M>;
-    type Prover = STIRProver<F, M, S>;
-    type Verifier = STIRVerifier<F, M, S>;
+    type Config = STIRConfig<W::MerkleConfig, S>;
+    type Proof = STIRProof<F, W::MerkleConfig>;
+    type Prover = STIRProver<F, S, W>;
+    type Verifier = STIRVerifier<F, S, W>;
 
     fn new(config: Self::Config) -> (Self::Prover, Self::Verifier) {
         (

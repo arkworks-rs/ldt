@@ -1,4 +1,7 @@
-use ark_crypto_primitives::{merkle_tree::Config as MerkleConfig, sponge::{Absorb, CryptographicSponge}};
+use ark_crypto_primitives::{
+    merkle_tree::Config as MerkleConfig,
+    sponge::{Absorb, CryptographicSponge},
+};
 
 use ark_ff::FftField;
 use ark_std::marker::PhantomData;

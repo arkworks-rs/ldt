@@ -7,14 +7,20 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness, domain::Domain, fri::{
+    commitment::Witness,
+    domain::Domain,
+    fri::{
         config::FRIConfig,
         proof::{FRIProof, FRIRoundProof},
-    }, ldt::Prover, poly_utils, utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations}
+    },
+    ldt::Prover,
+    poly_utils,
+    utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
 pub struct FRIProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
-where W::MerkleConfig: MerkleConfig
+where
+    W::MerkleConfig: MerkleConfig,
 {
     config: FRIConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
@@ -22,7 +28,8 @@ where W::MerkleConfig: MerkleConfig
     _sponge_config: PhantomData<S>,
 }
 
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> Prover<F> for FRIProver<F, S, W>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> Prover<F>
+    for FRIProver<F, S, W>
 where
     S::Config: Clone,
     W: Clone,
@@ -49,11 +56,13 @@ where
         // get evaluations over a domain
         let domain: Domain<F> =
             Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
-        let poly = witness.coeff() as DensePolynomial<F>;
-        let evals: Vec<F> = witness.coeff()
+        // let poly = witness.coeff() as DensePolynomial<F>;
+        let evals: Vec<F> = witness
+            .coeff()
             .evaluate_over_domain_by_ref(domain.backing_domain)
             .evals;
-        let committed_values: Vec<Vec<F>> = utils::stack_evaluations(evals, self.config.folding_factor);
+        let committed_values: Vec<Vec<F>> =
+            utils::stack_evaluations(evals, self.config.folding_factor);
         // let committed_values =
         //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
 
@@ -171,7 +180,8 @@ where
             //     .generate_multi_proof(query_indexes.clone())
             //     .unwrap();
             // get the openings
-            let mut queries_to_prev_proof: Vec<Path<W::MerkleConfig>> = Vec::with_capacity(query_indexes.len());
+            let mut queries_to_prev_proof: Vec<Path<W::MerkleConfig>> =
+                Vec::with_capacity(query_indexes.len());
             for query in query_indexes.clone() {
                 queries_to_prev_proof.push(merkle_trees[round].generate_proof(query).unwrap());
             }

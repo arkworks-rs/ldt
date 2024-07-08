@@ -12,15 +12,13 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        crypto::{fields::Field256, fs, merkle_tree},
-        ldt::{LowDegreeTest, Prover, Verifier},
-        stir::{config::STIRConfig, ldt::STIR},
-        commitment::SingleWitness,
+        commitment::{single::{SingleWitness, SingleWitnessArgument}, Witness}, crypto::{fields::Field256, fs, merkle_tree}, domain::Domain, ldt::{LowDegreeTest, Prover, Verifier}, stir::{config::STIRConfig, ldt::STIR}
     };
 
     type TestField = Field256;
     type TestMerkleConfig = merkle_tree::poseidon::MerkleTreeParams<TestField>;
     type TestSpongeConfig = PoseidonSponge<TestField>;
+    type TestWitness = SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig>;
 
     #[test]
     fn test_stir_ldt() {
@@ -42,16 +40,20 @@ mod tests {
             stopping_degree: 8,
         };
         let (prover, verifier) =
-            STIR::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
+            STIR::<TestField, TestSpongeConfig, TestWitness>::new(config.clone());
 
-        // generate random witness
-        let polynomial = DensePolynomial::<Field256>::rand(config.starting_degree - 1, &mut rng);
-        let witness = SingleWitness {
-            polynomial: polynomial.clone(),
-        };
+        let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
+        SingleWitness::new(SingleWitnessArgument {
+            coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
+            domain: Domain::<TestField>::new(config.starting_degree, 0).unwrap(),
+            folding_factor: 1,
+            merkle_leaf_hash_param,
+            merkle_two_to_one_param,
+            sponge_config: config.sponge_config,
+        });
 
         // prove
-        let stir_proof = prover.prove(witness);
+        let stir_proof = prover.prove(&witness);
 
         // verify
         assert_eq!(verifier.verify(&stir_proof), true);

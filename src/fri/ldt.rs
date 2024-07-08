@@ -6,7 +6,9 @@ use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness, fri::{config::FRIConfig, proof::FRIProof, prover::FRIProver, verifier::FRIVerifier}, ldt::{LowDegreeTest, Prover, Verifier}
+    commitment::Witness,
+    fri::{config::FRIConfig, proof::FRIProof, prover::FRIProver, verifier::FRIVerifier},
+    ldt::{LowDegreeTest, Prover, Verifier},
 };
 
 pub struct FRI<F: FftField, S: CryptographicSponge, W: Witness<F>> {
@@ -14,8 +16,8 @@ pub struct FRI<F: FftField, S: CryptographicSponge, W: Witness<F>> {
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
-    LowDegreeTest<F> for FRI<F, S, W>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> LowDegreeTest<F>
+    for FRI<F, S, W>
 where
     W: Clone,
     W::ChallengeAnswers: Clone,
