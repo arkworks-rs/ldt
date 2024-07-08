@@ -48,12 +48,12 @@ where
         merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
         num_challenges: usize,
         sponge_config: <S as CryptographicSponge>::Config,
-        starting_degree: usize,
-        starting_rate: usize,
+        _starting_degree: usize,
+        _starting_rate: usize,
         witness: W,
     ) -> Self {
         let challenges = witness.challenges(num_challenges);
-        let mut challenge_answers = witness.challenge_answers(challenges);
+        let challenge_answers = witness.challenge_answers(challenges);
 
         Self {
             commitment_digest: witness.commitment_digest(),

@@ -9,30 +9,29 @@ use ark_poly::{EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    domain::Domain,
-    fri::{config::FRIConfig, proof::FRIProof},
-    ldt::Verifier,
-    poly_utils,
-    utils::{dedup, proof_of_work_verify, squeeze_integer},
+    commitment::Witness, domain::Domain, fri::{config::FRIConfig, proof::FRIProof}, ldt::Verifier, poly_utils, utils::{dedup, proof_of_work_verify, squeeze_integer}
 };
-pub struct FRIVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
-    config: FRIConfig<M, S>,
+pub struct FRIVerifier<F: FftField, S: CryptographicSponge, W: Witness<F>>
+where W::MerkleConfig: MerkleConfig,
+{
+    config: FRIConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<M>,
+    _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Verifier<F>
-    for FRIVerifier<F, M, S>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> Verifier<F>
+    for FRIVerifier<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
+    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
-    type Config = FRIConfig<M, S>;
-    type Proof = FRIProof<F, M>;
-    fn new(config: FRIConfig<M, S>) -> Self {
+    type Config = FRIConfig<W::MerkleConfig, S>;
+    type Proof = FRIProof<F, W::MerkleConfig>;
+    fn new(config: FRIConfig<W::MerkleConfig, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<M>,
+            _merkle_config: PhantomData::<W::MerkleConfig>,
             _sponge_config: PhantomData::<S>,
         }
     }

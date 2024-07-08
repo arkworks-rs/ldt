@@ -3,6 +3,17 @@ use ark_ff::FftField;
 
 pub mod single;
 
+// pub trait Commitment<F: FftField> where Self::MerkleConfig: MerkleConfig
+// {
+//     type MerkleConfig;
+//     fn new(argument: <Self::MerkleConfig as MerkleConfig>::InnerDigest) -> Self;
+//     fn commitment_digest(
+//         &self,
+//     ) -> <<Self as Commitment<F>>::MerkleConfig as MerkleConfig>::InnerDigest
+//     where
+//         <Self as Commitment<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config;
+// }
+
 pub trait Witness<F: FftField> {
     type Argument;
     type Coeff;

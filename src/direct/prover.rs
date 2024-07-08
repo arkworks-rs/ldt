@@ -1,4 +1,4 @@
-use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
+use ark_crypto_primitives::{merkle_tree::Config as MerkleConfig, sponge::{Absorb, CryptographicSponge}};
 
 use ark_ff::FftField;
 use ark_std::marker::PhantomData;
@@ -21,12 +21,11 @@ where
 }
 impl<F: FftField, S: CryptographicSponge, W: Witness<F>> Prover<F> for DirectProver<F, S, W>
 where
-    <W as Witness<F>>::ChallengeAnswers: Clone,
-    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
-    <<W as Witness<F>>::MerkleConfig as ark_crypto_primitives::merkle_tree::Config>::InnerDigest:
-        Absorb,
     S::Config: Clone,
     W: Clone,
+    W::ChallengeAnswers: Clone,
+    W::MerkleConfig: MerkleConfig,
+    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
     type Witness = W;
     type Config = DirectConfig<W::MerkleConfig, S>;

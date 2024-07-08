@@ -7,56 +7,58 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    domain::Domain,
-    fri::{
+    commitment::Witness, domain::Domain, fri::{
         config::FRIConfig,
         proof::{FRIProof, FRIRoundProof},
-    },
-    ldt::Prover,
-    poly_utils,
-    utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
-    commitment::Witness,
+    }, ldt::Prover, poly_utils, utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations}
 };
 
-pub struct FRIProver<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
-    config: FRIConfig<M, S>,
+pub struct FRIProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
+where W::MerkleConfig: MerkleConfig
+{
+    config: FRIConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<M>,
+    _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
 
-impl<F: FftField + PrimeField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Prover<F>
-    for FRIProver<F, M, S>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> Prover<F> for FRIProver<F, S, W>
 where
-    M::InnerDigest: Absorb,
+    S::Config: Clone,
+    W: Clone,
+    W::ChallengeAnswers: Clone,
+    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
+    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
-    type Config = FRIConfig<M, S>;
-    type Proof = FRIProof<F, M>;
+    type Witness = W;
+    type Config = FRIConfig<W::MerkleConfig, S>;
+    type Proof = FRIProof<F, W::MerkleConfig>;
 
-    fn new(config: FRIConfig<M, S>) -> Self {
+    fn new(config: FRIConfig<W::MerkleConfig, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<M>,
+            _merkle_config: PhantomData::<W::MerkleConfig>,
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn prove(&self, witness: impl Witness<F>) -> Self::Proof {
+    fn prove(&self, witness: &W) -> Self::Proof {
         // TODO fix this
         // assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
 
         // get evaluations over a domain
         let domain: Domain<F> =
             Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
-        // let evals: Vec<F> = polynomials[0]
-        //     .evaluate_over_domain_by_ref(domain.backing_domain)
-        //     .evals;
-        // let p_evaluations: Vec<Vec<F>> = utils::stack_evaluations(evals, folding_factor);
-        let committed_values =
-            witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
+        let poly = witness.coeff() as DensePolynomial<F>;
+        let evals: Vec<F> = witness.coeff()
+            .evaluate_over_domain_by_ref(domain.backing_domain)
+            .evals;
+        let committed_values: Vec<Vec<F>> = utils::stack_evaluations(evals, self.config.folding_factor);
+        // let committed_values =
+        //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
 
         // generate the committment
-        let p_commitment = MerkleTree::<M>::new(
+        let p_commitment = MerkleTree::<W::MerkleConfig>::new(
             &self.config.merkle_leaf_hash_param,
             &self.config.merkle_two_to_one_param,
             &committed_values,
@@ -69,11 +71,11 @@ where
         sponge.absorb(&p_commitment.root());
 
         let mut g_domain: crate::domain::Domain<F> = domain.clone();
-        let mut g_poly: DensePolynomial<F> = witness.polynomial();
+        let mut g_poly: DensePolynomial<F> = witness.coeff();
 
         // Commit phase
-        let mut commitments: Vec<<M>::InnerDigest> = vec![];
-        let mut merkle_trees: Vec<MerkleTree<M>> = vec![p_commitment.clone()];
+        let mut commitments: Vec<<W::MerkleConfig as MerkleConfig>::InnerDigest> = vec![];
+        let mut merkle_trees: Vec<MerkleTree<W::MerkleConfig>> = vec![p_commitment.clone()];
         let mut folded_evals: Vec<Vec<Vec<F>>> = vec![committed_values.clone()];
 
         let mut folding_randomness = sponge.squeeze_field_elements(1)[0];
@@ -133,7 +135,7 @@ where
             //let g_evaluations = g_poly.evaluate_over_domain_by_ref(g_domain.backing_domain).evals;
 
             let g_folded_evaluations = stack_evaluations(g_evaluations, self.config.folding_factor);
-            let g_merkle = MerkleTree::<M>::new(
+            let g_merkle = MerkleTree::<W::MerkleConfig>::new(
                 &self.config.merkle_leaf_hash_param,
                 &self.config.merkle_two_to_one_param,
                 &g_folded_evaluations,
@@ -169,11 +171,11 @@ where
             //     .generate_multi_proof(query_indexes.clone())
             //     .unwrap();
             // get the openings
-            let mut queries_to_prev_proof: Vec<Path<M>> = Vec::with_capacity(query_indexes.len());
+            let mut queries_to_prev_proof: Vec<Path<W::MerkleConfig>> = Vec::with_capacity(query_indexes.len());
             for query in query_indexes.clone() {
                 queries_to_prev_proof.push(merkle_trees[round].generate_proof(query).unwrap());
             }
-            let queries_to_prev: (Vec<Vec<F>>, Vec<Path<M>>) =
+            let queries_to_prev: (Vec<Vec<F>>, Vec<Path<W::MerkleConfig>>) =
                 (queries_to_prev_ans, queries_to_prev_proof);
 
             folded_evals_len = folded_evals_len / self.config.folding_factor;

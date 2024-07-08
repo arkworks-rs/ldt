@@ -12,15 +12,16 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        crypto::{fields::Field256, fs, merkle_tree},
-        fri::{config::FRIConfig, ldt::FRI},
-        ldt::{LowDegreeTest, Prover, Verifier},
-        commitment::SingleWitness,
+        commitment::{
+            single::{SingleWitness, SingleWitnessArgument},
+            Witness,
+        }, crypto::{fields::Field256, fs, merkle_tree}, domain::Domain, fri::{config::FRIConfig, ldt::FRI}, ldt::{LowDegreeTest, Prover, Verifier}
     };
 
     type TestField = Field256;
     type TestMerkleConfig = merkle_tree::poseidon::MerkleTreeParams<TestField>;
     type TestSpongeConfig = PoseidonSponge<TestField>;
+    type TestWitness = SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig>;
 
     #[test]
     fn test_fri_ldt() {
@@ -41,15 +42,21 @@ mod tests {
             starting_rate: 8,
         };
         let (prover, verifier) =
-            FRI::<TestField, TestMerkleConfig, TestSpongeConfig>::new(config.clone());
+            FRI::<TestField, TestSpongeConfig, TestWitness>::new(config.clone());
 
-        // generate random witness
-        let witness = SingleWitness {
-            polynomial: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
-        };
+        // generate witness
+        let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
+            SingleWitness::new(SingleWitnessArgument {
+                coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
+                domain: Domain::<TestField>::new(config.starting_degree, 0).unwrap(),
+                folding_factor: 1,
+                merkle_leaf_hash_param,
+                merkle_two_to_one_param,
+                sponge_config: config.sponge_config,
+            });
 
         // prove
-        let fri_proof = prover.prove(witness);
+        let fri_proof = prover.prove(&witness);
 
         // verify
         assert_eq!(verifier.verify(&fri_proof), true);
