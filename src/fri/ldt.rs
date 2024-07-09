@@ -11,11 +11,19 @@ use crate::{
     ldt::{LowDegreeTest, Prover, Verifier},
 };
 
-pub struct FRI<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
+pub struct FRI<F, M, S, W>
+where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+    W: Witness<F, M>,
+{
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<W::MerkleConfig>,
+    _merkle_config: PhantomData<M>,
     _sponge_config: PhantomData<S>,
+    _witness: PhantomData<W>,
 }
+
 impl<F, M, S, W> LowDegreeTest<F> for FRI<F, M, S, W>
 where
     F: FftField + PrimeField,

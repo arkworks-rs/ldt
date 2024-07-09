@@ -34,8 +34,8 @@ where
         + Clone,
     W::ChallengeAnswers: Clone,
 {
-    type LDTConfig = STIRConfig<W::MerkleConfig, S>;
-    type Proof = STIRProof<F, W::MerkleConfig>;
+    type LDTConfig = STIRConfig<M, S>;
+    type Proof = STIRProof<F, M>;
     type Prover = STIRProver<F, M, S, W>;
     type Verifier = STIRVerifier<F, M, S, W>;
 

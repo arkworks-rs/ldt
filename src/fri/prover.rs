@@ -17,46 +17,49 @@ use crate::{
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
-pub struct FRIProver<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
+pub struct FRIProver<F, M, S, W>
 where
-    W::MerkleConfig: MerkleConfig,
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+    W: Witness<F, M>,
 {
-    config: FRIConfig<W::MerkleConfig, S>,
+    prover_config: FRIConfig<M, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<W::MerkleConfig>,
+    _merkle_config: PhantomData<M>,
     _sponge_config: PhantomData<S>,
+    _witness: PhantomData<W>,
 }
 
-impl<
-        F: FftField + PrimeField,
-        M: MerkleConfig,
-        S: CryptographicSponge,
-        W: Witness<F, M, MerkleConfig = M, Commitment = MerkleTree<M>, CommittedValues = Vec<Vec<F>>>,
-    > Prover<F> for FRIProver<F, M, S, W>
+impl<F, M, S, W> Prover<F> for FRIProver<F, M, S, W>
 where
-    S::Config: Clone,
-    W: Clone,
-    W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
+    F: FftField + PrimeField,
+    M: MerkleConfig<Leaf = Vec<F>>,
     M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+    S::Config: Clone,
+    W: Witness<F, M, MerkleConfig = M, Commitment = MerkleTree<M>, CommittedValues = Vec<Vec<F>>>
+        + Clone,
+    W::ChallengeAnswers: Clone,
 {
     type Witness = W;
     type ProverConfig = FRIConfig<W::MerkleConfig, S>;
     type Proof = FRIProof<F, W::MerkleConfig>;
 
-    fn new(config: FRIConfig<W::MerkleConfig, S>) -> Self {
+    fn new(prover_config: FRIConfig<W::MerkleConfig, S>) -> Self {
         Self {
-            config,
+            prover_config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<W::MerkleConfig>,
             _sponge_config: PhantomData::<S>,
+            _witness: PhantomData::<W>,
         }
     }
     fn prove(&self, witness: &W) -> Self::Proof {
         // assert!(witness.coeff_degree() < self.config.starting_degree);
 
         // Initialize a sponge with the commitment digest
-        let mut sponge: S = S::new(&self.config.sponge_config);
+        let mut sponge: S = S::new(&self.prover_config.sponge_config);
         sponge.absorb(&witness.commitment_digest());
 
         let mut g_domain: crate::domain::Domain<F> = witness.domain();
@@ -68,11 +71,11 @@ where
         let mut folded_evals: Vec<Vec<Vec<F>>> = vec![witness.committed_values()];
 
         let mut folding_randomness = sponge.squeeze_field_elements(1)[0];
-        for _ in 0..self.config.num_rounds {
+        for _ in 0..self.prover_config.num_rounds {
             // Fold the initial polynomial
             g_poly = poly_utils::folding::poly_fold(
                 &g_poly,
-                self.config.folding_factor,
+                self.prover_config.folding_factor,
                 folding_randomness,
             );
 
@@ -83,9 +86,9 @@ where
             let domain_size = g_domain.size();
             let generator = g_domain
                 .backing_domain
-                .element(domain_size / self.config.folding_factor);
+                .element(domain_size / self.prover_config.folding_factor);
             let generator_inv = generator.inverse().unwrap();
-            let size_inv = F::from(self.config.folding_factor as u64)
+            let size_inv = F::from(self.prover_config.folding_factor as u64)
                 .inverse()
                 .unwrap();
             let coset_offsets: Vec<_> = g_domain
@@ -120,13 +123,14 @@ where
                 })
                 .collect();
 
-            g_domain = g_domain.scale(self.config.folding_factor);
+            g_domain = g_domain.scale(self.prover_config.folding_factor);
             //let g_evaluations = g_poly.evaluate_over_domain_by_ref(g_domain.backing_domain).evals;
 
-            let g_folded_evaluations = stack_evaluations(g_evaluations, self.config.folding_factor);
+            let g_folded_evaluations =
+                stack_evaluations(g_evaluations, self.prover_config.folding_factor);
             let g_merkle = MerkleTree::<W::MerkleConfig>::new(
-                &self.config.merkle_leaf_hash_param,
-                &self.config.merkle_two_to_one_param,
+                &self.prover_config.merkle_leaf_hash_param,
+                &self.prover_config.merkle_two_to_one_param,
                 &g_folded_evaluations,
             )
             .unwrap();
@@ -140,18 +144,22 @@ where
             folded_evals.push(g_folded_evaluations);
         }
 
-        g_poly =
-            poly_utils::folding::poly_fold(&g_poly, self.config.folding_factor, folding_randomness);
+        g_poly = poly_utils::folding::poly_fold(
+            &g_poly,
+            self.prover_config.folding_factor,
+            folding_randomness,
+        );
 
         // Query phase
-        let mut folded_evals_len = witness.domain().size() / self.config.folding_factor;
+        let mut folded_evals_len = witness.domain().size() / self.prover_config.folding_factor;
         let mut query_indexes = dedup(
-            (0..self.config.repetitions).map(|_| squeeze_integer(&mut sponge, folded_evals_len)),
+            (0..self.prover_config.repetitions)
+                .map(|_| squeeze_integer(&mut sponge, folded_evals_len)),
         );
 
         // Note that we include final round as well
         let mut round_proofs = vec![];
-        for round in 0..=self.config.num_rounds {
+        for round in 0..=self.prover_config.num_rounds {
             let queries_to_prev_ans = query_indexes
                 .iter()
                 .map(|&index| folded_evals[round][index].clone())
@@ -168,7 +176,7 @@ where
             let queries_to_prev: (Vec<Vec<F>>, Vec<Path<W::MerkleConfig>>) =
                 (queries_to_prev_ans, queries_to_prev_proof);
 
-            folded_evals_len = folded_evals_len / self.config.folding_factor;
+            folded_evals_len = folded_evals_len / self.prover_config.folding_factor;
             query_indexes = dedup(query_indexes.into_iter().map(|i| i % folded_evals_len));
 
             round_proofs.push(FRIRoundProof { queries_to_prev });
@@ -178,7 +186,7 @@ where
             polynomial: g_poly,
             commitments,
             round_proofs,
-            proof_of_work_nonce: proof_of_work(&mut sponge, self.config.proof_of_work_bits),
+            proof_of_work_nonce: proof_of_work(&mut sponge, self.prover_config.proof_of_work_bits),
             initial_p_commitment_root: witness.commitment_digest(),
         }
     }

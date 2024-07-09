@@ -78,37 +78,39 @@ impl<F: FftField> VerificationState<F> {
     }
 }
 
-pub struct STIRVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
+pub struct STIRVerifier<F, M, S, W>
 where
-    W::MerkleConfig: MerkleConfig,
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+    W: Witness<F, M, MerkleConfig = M>,
 {
-    config: STIRConfig<W::MerkleConfig, S>,
+    config: STIRConfig<M, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<W::MerkleConfig>,
+    _merkle_config: PhantomData<M>,
     _sponge_config: PhantomData<S>,
+    _witness: PhantomData<W>,
 }
-impl<
-        F: FftField + PrimeField + Absorb,
-        M: MerkleConfig,
-        S: CryptographicSponge,
-        W: Witness<F, M>,
-    > Verifier<F> for STIRVerifier<F, M, S, W>
+impl<F, M, S, W> Verifier<F> for STIRVerifier<F, M, S, W>
 where
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
     S::Config: Clone,
-    W: Clone,
+    W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
-    type VerifierConfig = STIRConfig<W::MerkleConfig, S>;
-    type Proof = STIRProof<F, W::MerkleConfig>;
+    type VerifierConfig = STIRConfig<M, S>;
+    type Proof = STIRProof<F, M>;
 
-    fn new(config: STIRConfig<W::MerkleConfig, S>) -> Self {
+    fn new(config: STIRConfig<M, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<W::MerkleConfig>,
+            _merkle_config: PhantomData::<M>,
             _sponge_config: PhantomData::<S>,
+            _witness: PhantomData::<W>,
         }
     }
     fn verify(&self, proof: &Self::Proof) -> bool {
@@ -216,18 +218,15 @@ where
     }
 }
 
-impl<
-        F: FftField + PrimeField + Absorb,
-        M: MerkleConfig,
-        S: CryptographicSponge,
-        W: Witness<F, M>,
-    > STIRVerifier<F, M, S, W>
+impl<F, M, S, W> STIRVerifier<F, M, S, W>
 where
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
     S::Config: Clone,
-    W: Clone,
+    W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
     fn compute_folded_evaluations(
         &self,

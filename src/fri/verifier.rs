@@ -16,26 +16,32 @@ use crate::{
     poly_utils,
     utils::{dedup, proof_of_work_verify, squeeze_integer},
 };
-pub struct FRIVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
+pub struct FRIVerifier<F, M, S, W>
 where
-    W::MerkleConfig: MerkleConfig,
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+    W: Witness<F, M>,
 {
-    config: FRIConfig<W::MerkleConfig, S>,
+    verifier_config: FRIConfig<M, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
-    Verifier<F> for FRIVerifier<F, M, S, W>
+
+impl<F, M, S, W> Verifier<F> for FRIVerifier<F, M, S, W>
 where
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
+    F: FftField + PrimeField,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+    W: Witness<F, M>,
 {
-    type VerifierConfig = FRIConfig<W::MerkleConfig, S>;
-    type Proof = FRIProof<F, W::MerkleConfig>;
-    fn new(config: FRIConfig<W::MerkleConfig, S>) -> Self {
+    type VerifierConfig = FRIConfig<M, S>;
+    type Proof = FRIProof<F, M>;
+    fn new(verifier_config: FRIConfig<M, S>) -> Self {
         Self {
-            config,
+            verifier_config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<W::MerkleConfig>,
             _sponge_config: PhantomData::<S>,
@@ -48,7 +54,7 @@ where
         // }
 
         // We do FS
-        let mut sponge = S::new(&self.config.sponge_config);
+        let mut sponge = S::new(&self.verifier_config.sponge_config);
         sponge.absorb(&proof.initial_p_commitment_root);
 
         let mut folding_randomnessness: Vec<F> = vec![];
@@ -65,14 +71,14 @@ where
             .collect();
 
         // Verify merkle commitments
-        for num_round in 0..=self.config.num_rounds {
+        for num_round in 0..=self.verifier_config.num_rounds {
             let (answers, proofs) = &proof.round_proofs[num_round].queries_to_prev;
             for (i, proof) in proofs.iter().enumerate() {
                 let answer = answers[i].clone();
                 if !proof
                     .verify(
-                        &self.config.merkle_leaf_hash_param,
-                        &self.config.merkle_two_to_one_param,
+                        &self.verifier_config.merkle_leaf_hash_param,
+                        &self.verifier_config.merkle_two_to_one_param,
                         &commitments[num_round],
                         answer,
                     )
@@ -83,12 +89,16 @@ where
             }
         }
 
-        let mut g_domain =
-            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
+        let mut g_domain = Domain::<F>::new(
+            self.verifier_config.starting_degree,
+            self.verifier_config.starting_rate,
+        )
+        .unwrap();
 
-        let mut folded_evals_len = g_domain.size() / self.config.folding_factor;
+        let mut folded_evals_len = g_domain.size() / self.verifier_config.folding_factor;
         let query_indexes = dedup(
-            (0..self.config.repetitions).map(|_| squeeze_integer(&mut sponge, folded_evals_len)),
+            (0..self.verifier_config.repetitions)
+                .map(|_| squeeze_integer(&mut sponge, folded_evals_len)),
         );
 
         // Precomputation
@@ -97,8 +107,9 @@ where
             let mut query_indexes = query_indexes.clone();
             let mut generators = vec![];
             let mut coset_offsets = vec![];
-            for _ in 0..=self.config.num_rounds {
-                let generator = g_domain.element(g_domain.size() / self.config.folding_factor);
+            for _ in 0..=self.verifier_config.num_rounds {
+                let generator =
+                    g_domain.element(g_domain.size() / self.verifier_config.folding_factor);
 
                 generators.push(generator);
 
@@ -106,15 +117,15 @@ where
                     query_indexes.iter().map(|i| g_domain.element(*i)).collect();
                 coset_offsets.push(round_offsets);
 
-                g_domain = g_domain.scale(self.config.folding_factor);
-                folded_evals_len = folded_evals_len / self.config.folding_factor;
+                g_domain = g_domain.scale(self.verifier_config.folding_factor);
+                folded_evals_len = folded_evals_len / self.verifier_config.folding_factor;
                 query_indexes = dedup(query_indexes.into_iter().map(|i| i % folded_evals_len));
             }
 
             (generators, coset_offsets)
         };
 
-        let size = F::from(self.config.folding_factor as u64);
+        let size = F::from(self.verifier_config.folding_factor as u64);
 
         let mut to_invert: Vec<F> = vec![];
 
@@ -136,7 +147,7 @@ where
         let mut query_indexes: Vec<_> = query_indexes.into_iter().map(|i| (i, 0)).collect();
         let mut folded_answers: Option<Vec<F>> = None;
 
-        for num_round in 0..=self.config.num_rounds {
+        for num_round in 0..=self.verifier_config.num_rounds {
             let folding_randomness = folding_randomnessness[num_round];
             let answers: Vec<_> = query_indexes
                 .iter()
@@ -176,7 +187,7 @@ where
                 })
                 .collect();
 
-            folded_evals_len = folded_evals_len / self.config.folding_factor;
+            folded_evals_len = folded_evals_len / self.verifier_config.folding_factor;
 
             // Now we need to sort and dedup
             let query_answers: BTreeMap<_, _> = query_indexes
@@ -214,7 +225,7 @@ where
         // Proof of work
         proof_of_work_verify(
             &mut sponge,
-            self.config.proof_of_work_bits,
+            self.verifier_config.proof_of_work_bits,
             proof.proof_of_work_nonce,
         )
     }

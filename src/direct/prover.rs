@@ -22,8 +22,9 @@ where
 {
     config: DirectConfig<M, S>,
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<W::MerkleConfig>,
+    _merkle_config: PhantomData<M>,
     _sponge_config: PhantomData<S>,
+    _witness: PhantomData<W>,
 }
 
 impl<F, M, S, W> Prover<F> for DirectProver<F, M, S, W>
@@ -37,15 +38,16 @@ where
     W::ChallengeAnswers: Clone,
 {
     type Witness = W;
-    type ProverConfig = DirectConfig<W::MerkleConfig, S>;
+    type ProverConfig = DirectConfig<M, S>;
     type Proof = SingleProof<F, M, S, W>;
 
-    fn new(config: DirectConfig<W::MerkleConfig, S>) -> Self {
+    fn new(config: DirectConfig<M, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<W::MerkleConfig>,
+            _merkle_config: PhantomData::<M>,
             _sponge_config: PhantomData::<S>,
+            _witness: PhantomData::<W>,
         }
     }
 

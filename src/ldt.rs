@@ -4,13 +4,13 @@ pub trait Prover<F: FftField> {
     type Proof;
     type ProverConfig;
     type Witness;
-    fn new(config: Self::ProverConfig) -> Self;
+    fn new(prover_config: Self::ProverConfig) -> Self;
     fn prove(&self, witness: &Self::Witness) -> Self::Proof;
 }
 pub trait Verifier<F: FftField> {
     type Proof;
     type VerifierConfig;
-    fn new(config: Self::VerifierConfig) -> Self;
+    fn new(verifier_config: Self::VerifierConfig) -> Self;
     fn verify(&self, proof: &Self::Proof) -> bool;
 }
 pub trait LowDegreeTest<F: FftField> {
@@ -18,5 +18,5 @@ pub trait LowDegreeTest<F: FftField> {
     type Proof;
     type Prover;
     type Verifier;
-    fn new(config: Self::LDTConfig) -> (Self::Prover, Self::Verifier);
+    fn new(ldt_config: Self::LDTConfig) -> (Self::Prover, Self::Verifier);
 }
