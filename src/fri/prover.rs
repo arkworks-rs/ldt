@@ -183,11 +183,11 @@ where
         }
 
         Self::Proof {
-            polynomial: g_poly,
-            commitments,
+            coeff: g_poly,
+            commitment_digests: commitments,
             round_proofs,
             proof_of_work_nonce: proof_of_work(&mut sponge, self.prover_config.proof_of_work_bits),
-            initial_p_commitment_root: witness.commitment_digest(),
+            initial_commitment_digest: witness.commitment_digest(),
         }
     }
 }

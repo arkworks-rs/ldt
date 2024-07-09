@@ -55,19 +55,19 @@ where
 
         // We do FS
         let mut sponge = S::new(&self.verifier_config.sponge_config);
-        sponge.absorb(&proof.initial_p_commitment_root);
+        sponge.absorb(&proof.initial_commitment_digest);
 
         let mut folding_randomnessness: Vec<F> = vec![];
         folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);
         // Absorb the roots
-        for commitment in &proof.commitments {
+        for commitment in &proof.commitment_digests {
             sponge.absorb(&commitment);
             folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);
         }
 
         // We adjoin the initial commitment
-        let commitments: Vec<_> = std::iter::once(proof.initial_p_commitment_root.clone())
-            .chain(proof.commitments.iter().cloned())
+        let commitments: Vec<_> = std::iter::once(proof.initial_commitment_digest.clone())
+            .chain(proof.commitment_digests.iter().cloned())
             .collect();
 
         // Verify merkle commitments
@@ -210,7 +210,7 @@ where
             .into_iter()
             .map(|(index, checking_index)| {
                 proof
-                    .polynomial
+                    .coeff
                     .evaluate(&g_domain.element(index + checking_index * folded_evals_len))
             })
             .collect();

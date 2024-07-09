@@ -7,9 +7,9 @@ pub struct FRIRoundProof<F: Field, M: MerkleConfig> {
 }
 
 pub struct FRIProof<F: Field, M: MerkleConfig> {
-    pub commitments: Vec<<M>::InnerDigest>,
-    pub initial_p_commitment_root: M::InnerDigest,
-    pub polynomial: DensePolynomial<F>,
+    pub commitment_digests: Vec<M::InnerDigest>,
+    pub initial_commitment_digest: M::InnerDigest,
+    pub coeff: DensePolynomial<F>,
     pub round_proofs: Vec<FRIRoundProof<F, M>>,
     pub proof_of_work_nonce: Option<usize>,
 }
