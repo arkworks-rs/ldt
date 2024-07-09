@@ -31,7 +31,7 @@ where
     W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
     <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
-    type Config = FRIConfig<W::MerkleConfig, S>;
+    type VerifierConfig = FRIConfig<W::MerkleConfig, S>;
     type Proof = FRIProof<F, W::MerkleConfig>;
     fn new(config: FRIConfig<W::MerkleConfig, S>) -> Self {
         Self {

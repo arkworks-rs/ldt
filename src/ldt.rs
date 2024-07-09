@@ -1,22 +1,22 @@
 use ark_ff::FftField;
 
 pub trait Prover<F: FftField> {
-    type Config;
     type Proof;
+    type ProverConfig;
     type Witness;
-    fn new(config: Self::Config) -> Self;
+    fn new(config: Self::ProverConfig) -> Self;
     fn prove(&self, witness: &Self::Witness) -> Self::Proof;
 }
 pub trait Verifier<F: FftField> {
-    type Config;
     type Proof;
-    fn new(config: Self::Config) -> Self;
+    type VerifierConfig;
+    fn new(config: Self::VerifierConfig) -> Self;
     fn verify(&self, proof: &Self::Proof) -> bool;
 }
 pub trait LowDegreeTest<F: FftField> {
-    type Config;
+    type LDTConfig;
     type Proof;
     type Prover;
     type Verifier;
-    fn new(config: Self::Config) -> (Self::Prover, Self::Verifier);
+    fn new(config: Self::LDTConfig) -> (Self::Prover, Self::Verifier);
 }

@@ -27,12 +27,12 @@ where
     S: CryptographicSponge,
     S::Config: Clone,
 {
-    type Config = FRIConfig<M, S>;
+    type LDTConfig = FRIConfig<M, S>;
     type Proof = FRIProof<F, M>;
     type Prover = FRIProver<F, M, S, W>;
     type Verifier = FRIVerifier<F, M, S, W>;
 
-    fn new(config: Self::Config) -> (Self::Prover, Self::Verifier) {
+    fn new(config: Self::LDTConfig) -> (Self::Prover, Self::Verifier) {
         (
             Self::Prover::new(config.clone()),
             Self::Verifier::new(config),

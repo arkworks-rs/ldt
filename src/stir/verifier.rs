@@ -100,7 +100,7 @@ where
     W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
     <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
-    type Config = STIRConfig<W::MerkleConfig, S>;
+    type VerifierConfig = STIRConfig<W::MerkleConfig, S>;
     type Proof = STIRProof<F, W::MerkleConfig>;
 
     fn new(config: STIRConfig<W::MerkleConfig, S>) -> Self {

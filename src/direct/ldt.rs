@@ -18,21 +18,22 @@ pub struct DirectLDT<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Wi
     _sponge_config: PhantomData<S>,
     _witness: PhantomData<W>,
 }
-impl<F: FftField, S: CryptographicSponge, M: MerkleConfig, W: Witness<F, M, MerkleConfig = M>>
-    LowDegreeTest<F> for DirectLDT<F, M, S, W>
+impl<F, M, S, W> LowDegreeTest<F> for DirectLDT<F, M, S, W>
 where
-    S::Config: Clone,
-    W: Clone,
-    W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig,
+    F: FftField,
+    M: MerkleConfig,
     M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+    S::Config: Clone,
+    W: Witness<F, M, MerkleConfig = M> + Clone,
+    W::ChallengeAnswers: Clone,
 {
-    type Config = DirectConfig<W::MerkleConfig, S>;
+    type LDTConfig = DirectConfig<M, S>;
     type Proof = SingleProof<F, M, S, W>;
     type Prover = DirectProver<F, M, S, W>;
     type Verifier = DirectVerifier<F, M, S, W>;
 
-    fn new(config: Self::Config) -> (Self::Prover, Self::Verifier) {
+    fn new(config: Self::LDTConfig) -> (Self::Prover, Self::Verifier) {
         (
             Self::Prover::new(config.clone()),
             Self::Verifier::new(config),

@@ -15,7 +15,7 @@ use crate::{
         config::STIRConfig,
         proof::{STIRFinalRoundProof, STIRInnerRoundProof, STIRProof},
     },
-    utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
 pub struct STIRRoundState<F, M, S>
@@ -54,11 +54,12 @@ where
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
-    W: Witness<F, M, MerkleConfig = M> + Clone,
+    W: Witness<F, M, MerkleConfig = M, Commitment = MerkleTree<M>, CommittedValues = Vec<Vec<F>>>
+        + Clone,
     W::ChallengeAnswers: Clone,
 {
     type Witness = W;
-    type Config = STIRConfig<M, S>;
+    type ProverConfig = STIRConfig<M, S>;
     type Proof = STIRProof<F, M>;
 
     fn new(config: STIRConfig<M, S>) -> Self {
@@ -71,35 +72,14 @@ where
     }
 
     fn prove(&self, witness: &W) -> Self::Proof {
-        // assert!(witness.polynomial().degree() < self.config.starting_degree);
-
-        // get evaluations over a domain
-        let domain: Domain<F> =
-            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
-        // let poly = witness.coeff() as DensePolynomial<F>;
-        let evals: Vec<F> = witness
-            .coeff()
-            .evaluate_over_domain_by_ref(domain.backing_domain)
-            .evals;
-        let committed_values: Vec<Vec<F>> =
-            utils::stack_evaluations(evals, self.config.folding_factor);
-        // let committed_values =
-        //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
-
-        // generate the committment
-        let p_commitment = MerkleTree::<W::MerkleConfig>::new(
-            &self.config.merkle_leaf_hash_param,
-            &self.config.merkle_two_to_one_param,
-            &committed_values,
-        )
-        .unwrap();
+        // assert!(witness.coeff_degree() < self.config.starting_degree);
 
         // Step 1: get initial state of the protocol
         let mut current_round_state: STIRRoundState<F, W::MerkleConfig, S> =
             Self::get_round_state_from_commitment(
-                &p_commitment,
-                committed_values,
-                &domain,
+                &witness.commitment(),
+                witness.committed_values(),
+                &witness.domain(),
                 witness.coeff(),
                 &self.config.sponge_config,
             );
@@ -119,7 +99,7 @@ where
 
         // Boom.
         Self::Proof {
-            initial_p_commitment_root: p_commitment.root(),
+            initial_p_commitment_root: witness.commitment_digest(),
             inner_round_proofs,
             final_round_proof,
         }

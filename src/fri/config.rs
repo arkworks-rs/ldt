@@ -16,10 +16,6 @@ pub struct FRIConfig<M: MerkleConfig, S: CryptographicSponge> {
     pub starting_rate: usize,
 }
 
-/*
-NOTE: Preferable to just do:
-    let fri_config: FRIConfig<M,S> = Self { folding_factor: 8, ... }
-*/
 impl<M: MerkleConfig, S: CryptographicSponge> FRIConfig<M, S> {
     pub fn new(
         folding_factor: usize,

@@ -3,7 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
-use ark_poly::univariate::DensePolynomial;
+use ark_poly::{univariate::DensePolynomial, Polynomial};
 
 use crate::{
     commitment::Witness,
@@ -11,28 +11,36 @@ use crate::{
     utils::{squeeze_integer, stack_evaluations},
 };
 
-pub struct SingleWitness<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+pub struct SingleWitness<F, M, S>
+where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+{
     argument: SingleWitnessArgument<F, M, S>,
     coeff: DensePolynomial<F>,
     domain: Domain<F>,
     commitment: MerkleTree<M>,
     committed_values: Vec<Vec<F>>,
 }
-impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Witness<F, M>
-    for SingleWitness<F, M, S>
+
+impl<F, M, S> Witness<F, M> for SingleWitness<F, M, S>
 where
+    F: FftField,
+    M: MerkleConfig<Leaf = Vec<F>>,
     M::InnerDigest: Absorb,
+    S: CryptographicSponge,
     S::Config: Clone,
 {
     type Argument = SingleWitnessArgument<F, M, S>;
     type Commitment = MerkleTree<M>;
     type CommittedValues = Vec<Vec<F>>;
     type Challenges = Vec<usize>;
-    type ChallengeAnswers = Vec<Path<Self::MerkleConfig>>;
+    type ChallengeAnswers = Vec<Path<M>>;
     type MerkleConfig = M;
 
     fn new(argument: Self::Argument) -> Self {
-        // commit to the witness
+        // 1) Generate a commitment for the argument
         let evals: Vec<F> = argument
             .coeff
             .evaluate_over_domain_by_ref(argument.domain.backing_domain)
@@ -44,6 +52,8 @@ where
             &committed_values,
         )
         .unwrap();
+
+        // 2) Keep everything the prover will need
         Self {
             argument: argument.clone(),
             coeff: argument.coeff,
@@ -54,6 +64,9 @@ where
     }
     fn coeff(&self) -> DensePolynomial<F> {
         self.coeff.clone()
+    }
+    fn coeff_degree(&self) -> usize {
+        self.coeff.degree()
     }
     fn commitment_digest(&self) -> M::InnerDigest {
         self.commitment.root()
@@ -112,8 +125,11 @@ where
         true
     }
 }
-impl<F: FftField, M: MerkleConfig, S: CryptographicSponge> Clone for SingleWitness<F, M, S>
+impl<F, M, S> Clone for SingleWitness<F, M, S>
 where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
     S::Config: Clone,
 {
     fn clone(&self) -> Self {

@@ -41,7 +41,7 @@ where
     M::InnerDigest: Absorb,
 {
     type Witness = W;
-    type Config = FRIConfig<W::MerkleConfig, S>;
+    type ProverConfig = FRIConfig<W::MerkleConfig, S>;
     type Proof = FRIProof<F, W::MerkleConfig>;
 
     fn new(config: FRIConfig<W::MerkleConfig, S>) -> Self {
@@ -53,9 +53,9 @@ where
         }
     }
     fn prove(&self, witness: &W) -> Self::Proof {
-        // assert!(commitment.polynomials[0].degree() < self.config.starting_degree); TODO: (z-tech) fix this
+        // assert!(witness.coeff_degree() < self.config.starting_degree);
 
-        //
+        // Initialize a sponge with the commitment digest
         let mut sponge: S = S::new(&self.config.sponge_config);
         sponge.absorb(&witness.commitment_digest());
 
@@ -63,8 +63,8 @@ where
         let mut g_poly: DensePolynomial<F> = witness.coeff();
 
         // Commit phase
-        let mut commitments: Vec<<W::MerkleConfig as MerkleConfig>::InnerDigest> = vec![];
-        let mut merkle_trees: Vec<MerkleTree<W::MerkleConfig>> = vec![witness.commitment()];
+        let mut commitments: Vec<M::InnerDigest> = vec![];
+        let mut merkle_trees: Vec<MerkleTree<M>> = vec![witness.commitment()];
         let mut folded_evals: Vec<Vec<Vec<F>>> = vec![witness.committed_values()];
 
         let mut folding_randomness = sponge.squeeze_field_elements(1)[0];

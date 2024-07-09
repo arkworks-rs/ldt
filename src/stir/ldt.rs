@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::Config as MerkleConfig,
+    merkle_tree::{Config as MerkleConfig, MerkleTree},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
@@ -30,15 +30,16 @@ where
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
-    W: Witness<F, M, MerkleConfig = M> + Clone,
+    W: Witness<F, M, MerkleConfig = M, Commitment = MerkleTree<M>, CommittedValues = Vec<Vec<F>>>
+        + Clone,
     W::ChallengeAnswers: Clone,
 {
-    type Config = STIRConfig<W::MerkleConfig, S>;
+    type LDTConfig = STIRConfig<W::MerkleConfig, S>;
     type Proof = STIRProof<F, W::MerkleConfig>;
     type Prover = STIRProver<F, M, S, W>;
     type Verifier = STIRVerifier<F, M, S, W>;
 
-    fn new(config: Self::Config) -> (Self::Prover, Self::Verifier) {
+    fn new(config: Self::LDTConfig) -> (Self::Prover, Self::Verifier) {
         (
             Self::Prover::new(config.clone()),
             Self::Verifier::new(config),

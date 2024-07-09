@@ -16,6 +16,7 @@ pub trait Witness<F: FftField, M: MerkleConfig> {
 
     fn new(argument: Self::Argument) -> Self;
     fn coeff(&self) -> DensePolynomial<F>;
+    fn coeff_degree(&self) -> usize;
     fn commitment(&self) -> Self::Commitment;
     fn commitment_digest(&self) -> M::InnerDigest;
     fn committed_values(&self) -> Self::CommittedValues;

@@ -37,7 +37,7 @@ where
     W::ChallengeAnswers: Clone,
 {
     type Witness = W;
-    type Config = DirectConfig<W::MerkleConfig, S>;
+    type ProverConfig = DirectConfig<W::MerkleConfig, S>;
     type Proof = SingleProof<F, M, S, W>;
 
     fn new(config: DirectConfig<W::MerkleConfig, S>) -> Self {
