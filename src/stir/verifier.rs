@@ -7,7 +7,6 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     domain::Domain,
     ldt::Verifier,
     poly_utils,
@@ -16,6 +15,7 @@ use crate::{
         proof::{STIRInnerRoundProof, STIRProof},
     },
     utils::{dedup, proof_of_work_verify, squeeze_integer},
+    witness::Witness,
 };
 
 #[derive(Debug)]

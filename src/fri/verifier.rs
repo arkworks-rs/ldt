@@ -9,12 +9,12 @@ use ark_poly::{EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     domain::Domain,
     fri::{config::FRIConfig, proof::FRIProof},
     ldt::Verifier,
     poly_utils,
     utils::{dedup, proof_of_work_verify, squeeze_integer},
+    witness::Witness,
 };
 pub struct FRIVerifier<F, M, S, W>
 where

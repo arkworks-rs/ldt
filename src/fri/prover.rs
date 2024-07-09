@@ -7,7 +7,6 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     fri::{
         config::FRIConfig,
         proof::{FRIProof, FRIRoundProof},
@@ -15,6 +14,7 @@ use crate::{
     ldt::Prover,
     poly_utils,
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    witness::Witness,
 };
 
 pub struct FRIProver<F, M, S, W>

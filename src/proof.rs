@@ -4,7 +4,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::FftField;
 
-use crate::commitment::Witness;
+use crate::witness::Witness;
 
 pub trait Proof<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
     fn new(

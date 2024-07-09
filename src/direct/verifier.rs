@@ -6,10 +6,10 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     direct::config::DirectConfig,
     ldt::Verifier,
     proof::{Proof, SingleProof},
+    witness::Witness,
 };
 
 pub struct DirectVerifier<F, M, S, W>

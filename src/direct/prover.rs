@@ -7,10 +7,10 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     direct::config::DirectConfig,
     ldt::Prover,
     proof::{Proof, SingleProof},
+    witness::Witness,
 };
 
 pub struct DirectProver<F, M, S, W>

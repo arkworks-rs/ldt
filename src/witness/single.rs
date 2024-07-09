@@ -6,9 +6,9 @@ use ark_ff::FftField;
 use ark_poly::{univariate::DensePolynomial, Polynomial};
 
 use crate::{
-    commitment::Witness,
     domain::Domain,
     utils::{squeeze_integer, stack_evaluations},
+    witness::Witness,
 };
 
 pub struct SingleWitness<F, M, S>
@@ -143,8 +143,13 @@ where
     }
 }
 
-// Use this to instantiate a SingleWitness
-pub struct SingleWitnessArgument<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+// Use SingleWitnessArguement to instantiate a SingleWitness
+pub struct SingleWitnessArgument<F, M, S>
+where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+{
     pub coeff: DensePolynomial<F>,
     pub domain: Domain<F>,
     pub folding_factor: usize,
@@ -153,8 +158,11 @@ pub struct SingleWitnessArgument<F: FftField, M: MerkleConfig, S: CryptographicS
     pub sponge_config: S::Config,
 }
 
-impl<F: FftField, M: MerkleConfig, S: CryptographicSponge> Clone for SingleWitnessArgument<F, M, S>
+impl<F, M, S> Clone for SingleWitnessArgument<F, M, S>
 where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
     S::Config: Clone,
 {
     fn clone(&self) -> Self {

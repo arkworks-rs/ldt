@@ -7,7 +7,6 @@ use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain,
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     domain::Domain,
     ldt::Prover,
     poly_utils,
@@ -16,6 +15,7 @@ use crate::{
         proof::{STIRFinalRoundProof, STIRInnerRoundProof, STIRProof},
     },
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    witness::Witness,
 };
 
 pub struct STIRRoundState<F, M, S>

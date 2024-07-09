@@ -11,14 +11,14 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        commitment::{
-            single::{SingleWitness, SingleWitnessArgument},
-            Witness,
-        },
         crypto::{fields::Field256, fs, merkle_tree},
         direct::{config::DirectConfig, ldt::DirectLDT},
         domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
+        witness::{
+            single::{SingleWitness, SingleWitnessArgument},
+            Witness,
+        },
     };
 
     type TestField = Field256;

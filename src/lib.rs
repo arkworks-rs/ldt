@@ -1,4 +1,3 @@
-pub mod commitment;
 pub mod crypto;
 pub mod direct;
 pub mod domain;
@@ -8,3 +7,4 @@ pub mod poly_utils;
 pub mod proof;
 pub mod stir;
 pub mod utils;
+pub mod witness;

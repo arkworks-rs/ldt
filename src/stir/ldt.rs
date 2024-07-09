@@ -6,9 +6,9 @@ use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     ldt::{LowDegreeTest, Prover, Verifier},
     stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
+    witness::Witness,
 };
 
 pub struct STIR<F, M, S, W>
@@ -19,8 +19,9 @@ where
     W: Witness<F, M>,
 {
     _field: PhantomData<F>,
-    _merkle_config: PhantomData<W::MerkleConfig>,
+    _merkle_config: PhantomData<M>,
     _sponge_config: PhantomData<S>,
+    _witness: PhantomData<W>,
 }
 
 impl<F, M, S, W> LowDegreeTest<F> for STIR<F, M, S, W>

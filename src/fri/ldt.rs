@@ -6,9 +6,9 @@ use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness,
     fri::{config::FRIConfig, proof::FRIProof, prover::FRIProver, verifier::FRIVerifier},
     ldt::{LowDegreeTest, Prover, Verifier},
+    witness::Witness,
 };
 
 pub struct FRI<F, M, S, W>
