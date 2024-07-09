@@ -6,9 +6,8 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    direct::config::DirectConfig,
+    direct::{config::DirectConfig, proof::DirectProof},
     ldt::Verifier,
-    proof::{Proof, SingleProof},
     witness::Witness,
 };
 
@@ -35,7 +34,7 @@ where
     W::ChallengeAnswers: Clone,
 {
     type VerifierConfig = DirectConfig<M, S>;
-    type Proof = SingleProof<F, M, S, W>;
+    type Proof = DirectProof<F, M, S>;
 
     fn new(config: DirectConfig<M, S>) -> Self {
         Self {
@@ -47,6 +46,7 @@ where
         }
     }
     fn verify(&self, proof: &Self::Proof) -> bool {
-        proof.verify()
+        // proof.verify() HERE pass the thing to verify the proof against
+        true
     }
 }

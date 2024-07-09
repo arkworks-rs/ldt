@@ -77,7 +77,7 @@ where
     fn committed_values(&self) -> Self::CommittedValues {
         self.committed_values.clone()
     }
-    fn challenges(&self, num_challenges: usize) -> Self::Challenges {
+    fn challenges(&self, num_challenges: usize) -> Vec<usize> {
         // absorb committment digest
         let mut sponge = S::new(&self.argument.sponge_config);
         sponge.absorb(&self.commitment.root());

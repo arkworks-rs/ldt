@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::Config as MerkleConfig,
+    merkle_tree::{Config as MerkleConfig, Path},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
@@ -8,9 +8,10 @@ use ark_std::marker::PhantomData;
 use crate::{
     direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},
     ldt::{LowDegreeTest, Prover, Verifier},
-    proof::SingleProof,
     witness::Witness,
 };
+
+use super::proof::DirectProof;
 
 pub struct DirectLDT<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
     _field: PhantomData<F>,
@@ -21,15 +22,22 @@ pub struct DirectLDT<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Wi
 impl<F, M, S, W> LowDegreeTest<F> for DirectLDT<F, M, S, W>
 where
     F: FftField,
-    M: MerkleConfig,
+    M: MerkleConfig<Leaf = Vec<F>>,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
-    W: Witness<F, M, MerkleConfig = M> + Clone,
+    W: Witness<
+            F,
+            M,
+            MerkleConfig = M,
+            ChallengeAnswers = Vec<Path<M>>,
+            CommittedValues = Vec<Vec<F>>,
+            Challenges = Vec<usize>,
+        > + Clone,
     W::ChallengeAnswers: Clone,
 {
     type LDTConfig = DirectConfig<M, S>;
-    type Proof = SingleProof<F, M, S, W>;
+    type Proof = DirectProof<F, M, S>;
     type Prover = DirectProver<F, M, S, W>;
     type Verifier = DirectVerifier<F, M, S, W>;
 

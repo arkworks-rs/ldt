@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::Config as MerkleConfig,
+    merkle_tree::{Config as MerkleConfig, Path},
     sponge::{Absorb, CryptographicSponge},
 };
 
@@ -7,9 +7,8 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    direct::config::DirectConfig,
+    direct::{config::DirectConfig, proof::DirectProof},
     ldt::Prover,
-    proof::{Proof, SingleProof},
     witness::Witness,
 };
 
@@ -30,16 +29,23 @@ where
 impl<F, M, S, W> Prover<F> for DirectProver<F, M, S, W>
 where
     F: FftField,
-    M: MerkleConfig,
+    M: MerkleConfig<Leaf = Vec<F>>,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
-    W: Witness<F, M, MerkleConfig = M> + Clone,
+    W: Witness<
+            F,
+            M,
+            MerkleConfig = M,
+            CommittedValues = Vec<Vec<F>>,
+            ChallengeAnswers = Vec<Path<M>>,
+            Challenges = Vec<usize>,
+        > + Clone,
     W::ChallengeAnswers: Clone,
 {
     type Witness = W;
     type ProverConfig = DirectConfig<M, S>;
-    type Proof = SingleProof<F, M, S, W>;
+    type Proof = DirectProof<F, M, S>;
 
     fn new(config: DirectConfig<M, S>) -> Self {
         Self {
@@ -52,14 +58,14 @@ where
     }
 
     fn prove(&self, witness: &W) -> Self::Proof {
-        SingleProof::<F, M, S, W>::new(
+        let challenges = witness.challenges(self.config.num_challenges);
+        DirectProof::<F, M, S>::new(
+            challenges.clone(),
+            witness.challenge_answers(challenges),
+            witness.committed_values(),
             self.config.merkle_leaf_hash_param.clone(),
             self.config.merkle_two_to_one_param.clone(),
-            self.config.num_challenges,
             self.config.sponge_config.clone(),
-            self.config.degree,
-            1,
-            witness.clone(),
         )
     }
 }
