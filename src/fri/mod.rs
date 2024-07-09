@@ -52,8 +52,9 @@ mod tests {
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
             SingleWitness::new(SingleWitnessArgument {
                 coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
-                domain: Domain::<TestField>::new(config.starting_degree, 0).unwrap(),
-                folding_factor: 1,
+                domain: Domain::<TestField>::new(config.starting_degree, config.starting_rate)
+                    .unwrap(),
+                folding_factor: config.folding_factor,
                 merkle_leaf_hash_param,
                 merkle_two_to_one_param,
                 sponge_config: config.sponge_config,

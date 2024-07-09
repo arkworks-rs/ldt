@@ -31,7 +31,7 @@ impl<
         F: FftField + PrimeField,
         M: MerkleConfig,
         S: CryptographicSponge,
-        W: Witness<F, M, CommittedValues = Vec<Vec<F>>, MerkleConfig = M, Commitment = MerkleTree<M>>,
+        W: Witness<F, M, MerkleConfig = M, Commitment = MerkleTree<M>, CommittedValues = Vec<Vec<F>>>,
     > Prover<F> for FRIProver<F, M, S, W>
 where
     S::Config: Clone,
@@ -53,35 +53,13 @@ where
         }
     }
     fn prove(&self, witness: &W) -> Self::Proof {
-        // TODO fix this
-        // assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
+        // assert!(commitment.polynomials[0].degree() < self.config.starting_degree); TODO: (z-tech) fix this
 
-        // // get evaluations over a domain
-        let domain = witness.domain();
-        // // let poly = witness.coeff() as DensePolynomial<F>;
-        // let evals: Vec<F> = witness
-        //     .coeff()
-        //     .evaluate_over_domain_by_ref(domain.backing_domain)
-        //     .evals;
-        // let committed_values: Vec<Vec<F>> =
-        //     utils::stack_evaluations(evals, self.config.folding_factor);
-        // // let committed_values =
-        // //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
-
-        // // generate the committment
-        // let p_commitment = MerkleTree::<W::MerkleConfig>::new(
-        //     &self.config.merkle_leaf_hash_param,
-        //     &self.config.merkle_two_to_one_param,
-        //     &committed_values,
-        // )
-        // .unwrap();
-
-        // assert_eq!(commitment.p_commitment.root(), p_commitment.root());
-
+        //
         let mut sponge: S = S::new(&self.config.sponge_config);
         sponge.absorb(&witness.commitment_digest());
 
-        let mut g_domain: crate::domain::Domain<F> = domain.clone();
+        let mut g_domain: crate::domain::Domain<F> = witness.domain();
         let mut g_poly: DensePolynomial<F> = witness.coeff();
 
         // Commit phase
@@ -166,7 +144,7 @@ where
             poly_utils::folding::poly_fold(&g_poly, self.config.folding_factor, folding_randomness);
 
         // Query phase
-        let mut folded_evals_len = domain.size() / self.config.folding_factor;
+        let mut folded_evals_len = witness.domain().size() / self.config.folding_factor;
         let mut query_indexes = dedup(
             (0..self.config.repetitions).map(|_| squeeze_integer(&mut sponge, folded_evals_len)),
         );

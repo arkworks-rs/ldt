@@ -18,7 +18,12 @@ use crate::{
     utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
-pub struct STIRRoundState<F: FftField + Absorb, M: MerkleConfig, S: CryptographicSponge> {
+pub struct STIRRoundState<F, M, S>
+where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+{
     domain: Domain<F>,
     polynomial: DensePolynomial<F>,
     p_commitment: MerkleTree<M>,
@@ -28,9 +33,13 @@ pub struct STIRRoundState<F: FftField + Absorb, M: MerkleConfig, S: Cryptographi
     sponge: S,
 }
 
-pub struct STIRProver<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
+pub struct STIRProver<F, M, S, W>
 where
-    W::MerkleConfig: MerkleConfig,
+    F: FftField,
+    M: MerkleConfig,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+    W: Witness<F, M, MerkleConfig = M>,
 {
     config: STIRConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
@@ -38,25 +47,21 @@ where
     _sponge_config: PhantomData<S>,
 }
 
-impl<
-        F: FftField + PrimeField + Absorb,
-        M: MerkleConfig,
-        S: CryptographicSponge,
-        W: Witness<F, M>,
-    > Prover<F> for STIRProver<F, M, S, W>
+impl<F, M, S, W> Prover<F> for STIRProver<F, M, S, W>
 where
-    F: Absorb,
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
     S::Config: Clone,
-    W: Clone,
+    W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
 {
     type Witness = W;
-    type Config = STIRConfig<W::MerkleConfig, S>;
-    type Proof = STIRProof<F, W::MerkleConfig>;
+    type Config = STIRConfig<M, S>;
+    type Proof = STIRProof<F, M>;
 
-    fn new(config: STIRConfig<W::MerkleConfig, S>) -> Self {
+    fn new(config: STIRConfig<M, S>) -> Self {
         Self {
             config,
             _field: PhantomData::<F>,
@@ -121,18 +126,13 @@ where
     }
 }
 
-impl<
-        F: FftField + PrimeField + Absorb,
-        M: MerkleConfig,
-        S: CryptographicSponge,
-        W: Witness<F, M>,
-    > STIRProver<F, M, S, W>
+impl<F, M, S, W> STIRProver<F, M, S, W>
 where
-    S::Config: Clone,
-    W: Clone,
-    W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+    W: Witness<F, M, MerkleConfig = M>,
 {
     fn get_round_state_from_commitment(
         commitment: &MerkleTree<W::MerkleConfig>,

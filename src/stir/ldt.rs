@@ -11,21 +11,27 @@ use crate::{
     stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
 };
 
-pub struct STIR<F: FftField + PrimeField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
+pub struct STIR<F, M, S, W>
+where
+    F: FftField,
+    M: MerkleConfig,
+    S: CryptographicSponge,
+    W: Witness<F, M>,
 {
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
-    LowDegreeTest<F> for STIR<F, M, S, W>
+
+impl<F, M, S, W> LowDegreeTest<F> for STIR<F, M, S, W>
 where
-    F: Absorb,
-    W: Clone,
-    W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
     S::Config: Clone,
+    W: Witness<F, M, MerkleConfig = M> + Clone,
+    W::ChallengeAnswers: Clone,
 {
     type Config = STIRConfig<W::MerkleConfig, S>;
     type Proof = STIRProof<F, W::MerkleConfig>;
