@@ -78,7 +78,7 @@ impl<F: FftField> VerificationState<F> {
     }
 }
 
-pub struct STIRVerifier<F: FftField, S: CryptographicSponge, W: Witness<F>>
+pub struct STIRVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
 where
     W::MerkleConfig: MerkleConfig,
 {
@@ -87,8 +87,12 @@ where
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> Verifier<F>
-    for STIRVerifier<F, S, W>
+impl<
+        F: FftField + PrimeField + Absorb,
+        M: MerkleConfig,
+        S: CryptographicSponge,
+        W: Witness<F, M>,
+    > Verifier<F> for STIRVerifier<F, M, S, W>
 where
     S::Config: Clone,
     W: Clone,
@@ -212,7 +216,12 @@ where
     }
 }
 
-impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> STIRVerifier<F, S, W>
+impl<
+        F: FftField + PrimeField + Absorb,
+        M: MerkleConfig,
+        S: CryptographicSponge,
+        W: Witness<F, M>,
+    > STIRVerifier<F, M, S, W>
 where
     S::Config: Clone,
     W: Clone,

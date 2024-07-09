@@ -8,17 +8,16 @@ use ark_std::marker::PhantomData;
 
 use crate::{
     commitment::Witness,
-    domain::Domain,
     fri::{
         config::FRIConfig,
         proof::{FRIProof, FRIRoundProof},
     },
     ldt::Prover,
     poly_utils,
-    utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
-pub struct FRIProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
+pub struct FRIProver<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
 where
     W::MerkleConfig: MerkleConfig,
 {
@@ -28,14 +27,18 @@ where
     _sponge_config: PhantomData<S>,
 }
 
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> Prover<F>
-    for FRIProver<F, S, W>
+impl<
+        F: FftField + PrimeField,
+        M: MerkleConfig,
+        S: CryptographicSponge,
+        W: Witness<F, M, CommittedValues = Vec<Vec<F>>, MerkleConfig = M, Commitment = MerkleTree<M>>,
+    > Prover<F> for FRIProver<F, M, S, W>
 where
     S::Config: Clone,
     W: Clone,
     W::ChallengeAnswers: Clone,
     W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
+    M::InnerDigest: Absorb,
 {
     type Witness = W;
     type Config = FRIConfig<W::MerkleConfig, S>;
@@ -53,39 +56,38 @@ where
         // TODO fix this
         // assert!(commitment.polynomials[0].degree() < self.config.starting_degree);
 
-        // get evaluations over a domain
-        let domain: Domain<F> =
-            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
-        // let poly = witness.coeff() as DensePolynomial<F>;
-        let evals: Vec<F> = witness
-            .coeff()
-            .evaluate_over_domain_by_ref(domain.backing_domain)
-            .evals;
-        let committed_values: Vec<Vec<F>> =
-            utils::stack_evaluations(evals, self.config.folding_factor);
-        // let committed_values =
-        //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
+        // // get evaluations over a domain
+        let domain = witness.domain();
+        // // let poly = witness.coeff() as DensePolynomial<F>;
+        // let evals: Vec<F> = witness
+        //     .coeff()
+        //     .evaluate_over_domain_by_ref(domain.backing_domain)
+        //     .evals;
+        // let committed_values: Vec<Vec<F>> =
+        //     utils::stack_evaluations(evals, self.config.folding_factor);
+        // // let committed_values =
+        // //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
 
-        // generate the committment
-        let p_commitment = MerkleTree::<W::MerkleConfig>::new(
-            &self.config.merkle_leaf_hash_param,
-            &self.config.merkle_two_to_one_param,
-            &committed_values,
-        )
-        .unwrap();
+        // // generate the committment
+        // let p_commitment = MerkleTree::<W::MerkleConfig>::new(
+        //     &self.config.merkle_leaf_hash_param,
+        //     &self.config.merkle_two_to_one_param,
+        //     &committed_values,
+        // )
+        // .unwrap();
 
         // assert_eq!(commitment.p_commitment.root(), p_commitment.root());
 
         let mut sponge: S = S::new(&self.config.sponge_config);
-        sponge.absorb(&p_commitment.root());
+        sponge.absorb(&witness.commitment_digest());
 
         let mut g_domain: crate::domain::Domain<F> = domain.clone();
         let mut g_poly: DensePolynomial<F> = witness.coeff();
 
         // Commit phase
         let mut commitments: Vec<<W::MerkleConfig as MerkleConfig>::InnerDigest> = vec![];
-        let mut merkle_trees: Vec<MerkleTree<W::MerkleConfig>> = vec![p_commitment.clone()];
-        let mut folded_evals: Vec<Vec<Vec<F>>> = vec![committed_values.clone()];
+        let mut merkle_trees: Vec<MerkleTree<W::MerkleConfig>> = vec![witness.commitment()];
+        let mut folded_evals: Vec<Vec<Vec<F>>> = vec![witness.committed_values()];
 
         let mut folding_randomness = sponge.squeeze_field_elements(1)[0];
         for _ in 0..self.config.num_rounds {
@@ -199,7 +201,7 @@ where
             commitments,
             round_proofs,
             proof_of_work_nonce: proof_of_work(&mut sponge, self.config.proof_of_work_bits),
-            initial_p_commitment_root: p_commitment.root(),
+            initial_p_commitment_root: witness.commitment_digest(),
         }
     }
 }

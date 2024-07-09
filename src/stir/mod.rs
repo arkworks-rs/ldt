@@ -47,7 +47,7 @@ mod tests {
             stopping_degree: 8,
         };
         let (prover, verifier) =
-            STIR::<TestField, TestSpongeConfig, TestWitness>::new(config.clone());
+            STIR::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(config.clone());
 
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
             SingleWitness::new(SingleWitnessArgument {

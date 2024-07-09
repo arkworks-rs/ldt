@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::Config as MerkleConfig,
+    merkle_tree::{Config as MerkleConfig, MerkleTree},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
@@ -11,24 +11,26 @@ use crate::{
     ldt::{LowDegreeTest, Prover, Verifier},
 };
 
-pub struct FRI<F: FftField, S: CryptographicSponge, W: Witness<F>> {
+pub struct FRI<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> LowDegreeTest<F>
-    for FRI<F, S, W>
+impl<F, M, S, W> LowDegreeTest<F> for FRI<F, M, S, W>
 where
+    F: FftField + PrimeField,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    W: Witness<F, M, Commitment = MerkleTree<M>, MerkleConfig = M, CommittedValues = Vec<Vec<F>>>,
     W: Clone,
     W::ChallengeAnswers: Clone,
-    W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
-    <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,
+    S: CryptographicSponge,
     S::Config: Clone,
 {
-    type Config = FRIConfig<W::MerkleConfig, S>;
-    type Proof = FRIProof<F, W::MerkleConfig>;
-    type Prover = FRIProver<F, S, W>;
-    type Verifier = FRIVerifier<F, S, W>;
+    type Config = FRIConfig<M, S>;
+    type Proof = FRIProof<F, M>;
+    type Prover = FRIProver<F, M, S, W>;
+    type Verifier = FRIVerifier<F, M, S, W>;
 
     fn new(config: Self::Config) -> (Self::Prover, Self::Verifier) {
         (

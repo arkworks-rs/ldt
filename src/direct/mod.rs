@@ -40,7 +40,9 @@ mod tests {
             sponge_config: fs::poseidon::default_fs_config::<Field256>(),
         };
         let (prover, verifier) =
-            DirectLDT::<TestField, TestSpongeConfig, TestWitness>::new(config.clone());
+            DirectLDT::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(
+                config.clone(),
+            );
 
         // generate witness
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =

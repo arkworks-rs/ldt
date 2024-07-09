@@ -16,7 +16,7 @@ use crate::{
     poly_utils,
     utils::{dedup, proof_of_work_verify, squeeze_integer},
 };
-pub struct FRIVerifier<F: FftField, S: CryptographicSponge, W: Witness<F>>
+pub struct FRIVerifier<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
 where
     W::MerkleConfig: MerkleConfig,
 {
@@ -25,8 +25,8 @@ where
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> Verifier<F>
-    for FRIVerifier<F, S, W>
+impl<F: FftField + PrimeField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
+    Verifier<F> for FRIVerifier<F, M, S, W>
 where
     W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,
     <W::MerkleConfig as MerkleConfig>::InnerDigest: Absorb,

@@ -6,13 +6,10 @@ use ark_ff::FftField;
 
 use crate::commitment::Witness;
 
-pub trait Proof<F: FftField, S: CryptographicSponge, W: Witness<F>>
-where
-    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
-{
+pub trait Proof<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
     fn new(
-        merkle_leaf_hash_param: LeafParam<W::MerkleConfig>,
-        merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
+        merkle_leaf_hash_param: LeafParam<M>,
+        merkle_two_to_one_param: TwoToOneParam<M>,
         num_challenges: usize,
         sponge_config: <S as CryptographicSponge>::Config,
         starting_degree: usize,
@@ -22,30 +19,26 @@ where
     fn verify(&self) -> bool;
 }
 
-pub struct SingleProof<F: FftField, S: CryptographicSponge, W: Witness<F>>
-where
-    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
-{
-    pub commitment_digest: <<W as Witness<F>>::MerkleConfig as MerkleConfig>::InnerDigest,
+pub struct SingleProof<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
+    pub commitment_digest: M::InnerDigest,
     pub committed_values: W::CommittedValues,
     pub challenge_answers: W::ChallengeAnswers,
-    pub merkle_leaf_hash_param: LeafParam<W::MerkleConfig>,
-    pub merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
+    pub merkle_leaf_hash_param: LeafParam<M>,
+    pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub num_challenges: usize,
     pub sponge_config: S::Config,
     pub witness: W,
 }
 
-impl<F: FftField, S: CryptographicSponge, W: Witness<F>> Proof<F, S, W> for SingleProof<F, S, W>
+impl<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> Proof<F, M, S, W>
+    for SingleProof<F, M, S, W>
 where
-    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
-    <<W as Witness<F>>::MerkleConfig as ark_crypto_primitives::merkle_tree::Config>::InnerDigest:
-        Absorb,
-    <W as Witness<F>>::ChallengeAnswers: Clone,
+    M::InnerDigest: Absorb,
+    <W as Witness<F, M>>::ChallengeAnswers: Clone,
 {
     fn new(
-        merkle_leaf_hash_param: LeafParam<W::MerkleConfig>,
-        merkle_two_to_one_param: TwoToOneParam<W::MerkleConfig>,
+        merkle_leaf_hash_param: LeafParam<M>,
+        merkle_two_to_one_param: TwoToOneParam<M>,
         num_challenges: usize,
         sponge_config: <S as CryptographicSponge>::Config,
         _starting_degree: usize,

@@ -28,7 +28,7 @@ pub struct STIRRoundState<F: FftField + Absorb, M: MerkleConfig, S: Cryptographi
     sponge: S,
 }
 
-pub struct STIRProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
+pub struct STIRProver<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
 where
     W::MerkleConfig: MerkleConfig,
 {
@@ -38,8 +38,12 @@ where
     _sponge_config: PhantomData<S>,
 }
 
-impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> Prover<F>
-    for STIRProver<F, S, W>
+impl<
+        F: FftField + PrimeField + Absorb,
+        M: MerkleConfig,
+        S: CryptographicSponge,
+        W: Witness<F, M>,
+    > Prover<F> for STIRProver<F, M, S, W>
 where
     F: Absorb,
     S::Config: Clone,
@@ -117,7 +121,12 @@ where
     }
 }
 
-impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> STIRProver<F, S, W>
+impl<
+        F: FftField + PrimeField + Absorb,
+        M: MerkleConfig,
+        S: CryptographicSponge,
+        W: Witness<F, M>,
+    > STIRProver<F, M, S, W>
 where
     S::Config: Clone,
     W: Clone,

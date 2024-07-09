@@ -13,16 +13,17 @@ use crate::{
     proof::{Proof, SingleProof},
 };
 
-pub struct DirectProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
+pub struct DirectProver<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>>
 where
-    <W as Witness<F>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
+    <W as Witness<F, M>>::MerkleConfig: ark_crypto_primitives::merkle_tree::Config,
 {
     config: DirectConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField, S: CryptographicSponge, W: Witness<F>> Prover<F> for DirectProver<F, S, W>
+impl<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M, MerkleConfig = M>>
+    Prover<F> for DirectProver<F, M, S, W>
 where
     S::Config: Clone,
     W: Clone,
@@ -32,7 +33,7 @@ where
 {
     type Witness = W;
     type Config = DirectConfig<W::MerkleConfig, S>;
-    type Proof = SingleProof<F, S, W>;
+    type Proof = SingleProof<F, M, S, W>;
 
     fn new(config: DirectConfig<W::MerkleConfig, S>) -> Self {
         Self {
@@ -43,7 +44,7 @@ where
         }
     }
     fn prove(&self, witness: &W) -> Self::Proof {
-        <Self::Proof as Proof<F, S, W>>::new(
+        <Self::Proof as Proof<F, M, S, W>>::new(
             self.config.merkle_leaf_hash_param.clone(),
             self.config.merkle_two_to_one_param.clone(),
             self.config.num_challenges,

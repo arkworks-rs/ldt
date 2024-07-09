@@ -14,10 +14,11 @@ use crate::{
 pub struct SingleWitness<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
     argument: SingleWitnessArgument<F, M, S>,
     coeff: DensePolynomial<F>,
+    domain: Domain<F>,
     commitment: MerkleTree<M>,
     committed_values: Vec<Vec<F>>,
 }
-impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Witness<F>
+impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> Witness<F, M>
     for SingleWitness<F, M, S>
 where
     M::InnerDigest: Absorb,
@@ -46,6 +47,7 @@ where
         Self {
             argument: argument.clone(),
             coeff: argument.coeff,
+            domain: argument.domain,
             commitment,
             committed_values,
         }
@@ -53,9 +55,7 @@ where
     fn coeff(&self) -> DensePolynomial<F> {
         self.coeff.clone()
     }
-    fn commitment_digest(
-        &self,
-    ) -> <<Self as Witness<F>>::MerkleConfig as MerkleConfig>::InnerDigest {
+    fn commitment_digest(&self) -> M::InnerDigest {
         self.commitment.root()
     }
     fn commitment(&self) -> MerkleTree<Self::MerkleConfig> {
@@ -81,6 +81,9 @@ where
             challenge_answers.push(self.commitment.generate_proof(challenge).unwrap());
         }
         challenge_answers
+    }
+    fn domain(&self) -> Domain<F> {
+        self.domain.clone()
     }
     fn verify(
         &self,
@@ -117,6 +120,7 @@ where
         Self {
             argument: self.argument.clone(),
             coeff: self.coeff.clone(),
+            domain: self.domain.clone(),
             commitment: self.commitment.clone(),
             committed_values: self.committed_values.clone(),
         }

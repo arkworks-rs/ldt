@@ -46,7 +46,7 @@ mod tests {
             starting_rate: 8,
         };
         let (prover, verifier) =
-            FRI::<TestField, TestSpongeConfig, TestWitness>::new(config.clone());
+            FRI::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(config.clone());
 
         // generate witness
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
