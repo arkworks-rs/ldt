@@ -114,17 +114,17 @@ where
         }
     }
     fn verify(&self, proof: &Self::Proof) -> bool {
-        if proof.final_round_proof.polynomial.degree() + 1 > self.config.stopping_degree {
+        if proof.final_round_proof.coeff.degree() + 1 > self.config.stopping_degree {
             return false;
         }
 
         // First we verify all Merkle paths
-        let mut current_root = proof.initial_p_commitment_root.clone();
+        let mut current_root = proof.initial_commitment_digest.clone();
         for round_proof in &proof.inner_round_proofs {
             for (leaf_value, inclusion_proof) in round_proof
-                .leaf_values_of_queries
+                .committed_values
                 .iter()
-                .zip(round_proof.inclusion_proofs_of_queries.iter())
+                .zip(round_proof.challenge_answers.iter())
             {
                 if !inclusion_proof
                     .verify(
@@ -138,13 +138,13 @@ where
                     return false;
                 }
             }
-            current_root = round_proof.p_commitment_root.clone();
+            current_root = round_proof.commitment_digest.clone();
         }
         for (final_leaf_value, final_inclusion_proof) in proof
             .final_round_proof
-            .leaf_values_of_queries
+            .committed_values
             .iter()
-            .zip(proof.final_round_proof.inclusion_proofs_of_queries.iter())
+            .zip(proof.final_round_proof.challenge_answers.iter())
         {
             if !final_inclusion_proof
                 .verify(
@@ -161,7 +161,7 @@ where
 
         // Now, we recompute
         let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&proof.initial_p_commitment_root);
+        sponge.absorb(&proof.initial_commitment_digest);
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
         let domain =
@@ -204,7 +204,7 @@ where
 
         // First, we want to query back the last oracle at this point, which is, again, just a
         // lookup
-        let oracle_answers = proof.final_round_proof.leaf_values_of_queries.clone();
+        let oracle_answers = proof.final_round_proof.committed_values.clone();
 
         let folded_answers = self.compute_folded_evaluations(
             &verification_state,
@@ -214,7 +214,7 @@ where
 
         folded_answers
             .into_iter()
-            .all(|(point, value)| proof.final_round_proof.polynomial.evaluate(&point) == value)
+            .all(|(point, value)| proof.final_round_proof.coeff.evaluate(&point) == value)
     }
 }
 
@@ -445,7 +445,7 @@ where
         verification_state: VerificationState<F>,
     ) -> Option<VerificationState<F>> {
         // Redo FS
-        sponge.absorb(&round_proof.p_commitment_root);
+        sponge.absorb(&round_proof.commitment_digest);
         let ood_randomness = sponge.squeeze_field_elements(self.config.num_out_of_domain_samples);
         sponge.absorb(&round_proof.out_of_domain_evaluations);
         let comb_randomness = sponge.squeeze_field_elements(1)[0];
@@ -472,7 +472,7 @@ where
         // At the indexes B_i for i in stir_randomness_indexes
         // Since we previously verified the Merkle paths, this is easy
         // TODO: We should probably check the indexes
-        let oracle_answers = round_proof.leaf_values_of_queries.clone();
+        let oracle_answers = round_proof.committed_values.clone();
 
         // Now, for each of the selected random points, we need to compute the folding of the
         // previous oracle
@@ -489,10 +489,10 @@ where
             .map(|(alpha, beta)| (alpha, *beta))
             .chain(folded_answers)
             .collect();
-        let interpolating_polynomial = round_proof.answer_polynomial.clone();
+        let interpolating_polynomial = round_proof.answer_coeff.clone();
 
         let ans_eval = interpolating_polynomial.evaluate(&shake_randomness);
-        let shake_eval = round_proof.shake_polynomial.evaluate(&shake_randomness);
+        let shake_eval = round_proof.shake_coeff.evaluate(&shake_randomness);
 
         let mut denoms: Vec<_> = quotient_answers
             .iter()

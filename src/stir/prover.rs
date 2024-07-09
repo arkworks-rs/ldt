@@ -99,7 +99,7 @@ where
 
         // Boom.
         Self::Proof {
-            initial_p_commitment_root: witness.commitment_digest(),
+            initial_commitment_digest: witness.commitment_digest(),
             inner_round_proofs,
             final_round_proof,
         }
@@ -163,9 +163,9 @@ where
 
         // Boom.
         STIRFinalRoundProof {
-            polynomial,
-            leaf_values_of_queries,
-            inclusion_proofs_of_queries,
+            coeff: polynomial,
+            committed_values: leaf_values_of_queries,
+            challenge_answers: inclusion_proofs_of_queries,
             proof_of_work_nonce,
         }
     }
@@ -256,12 +256,12 @@ where
                 sponge: round_state.sponge,
             },
             STIRInnerRoundProof {
-                p_commitment_root: folded_p_commitment_root,
+                commitment_digest: folded_p_commitment_root,
                 out_of_domain_evaluations,
-                leaf_values_of_queries,
-                inclusion_proofs_of_queries,
-                answer_polynomial,
-                shake_polynomial,
+                committed_values: leaf_values_of_queries,
+                challenge_answers: inclusion_proofs_of_queries,
+                answer_coeff: answer_polynomial,
+                shake_coeff: shake_polynomial,
                 proof_of_work_nonce,
             },
         )
