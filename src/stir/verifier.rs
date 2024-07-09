@@ -7,10 +7,15 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness, domain::Domain, ldt::Verifier, poly_utils, stir::{
+    commitment::Witness,
+    domain::Domain,
+    ldt::Verifier,
+    poly_utils,
+    stir::{
         config::STIRConfig,
         proof::{STIRInnerRoundProof, STIRProof},
-    }, utils::{dedup, proof_of_work_verify, squeeze_integer}
+    },
+    utils::{dedup, proof_of_work_verify, squeeze_integer},
 };
 
 #[derive(Debug)]
@@ -74,15 +79,16 @@ impl<F: FftField> VerificationState<F> {
 }
 
 pub struct STIRVerifier<F: FftField, S: CryptographicSponge, W: Witness<F>>
-where W::MerkleConfig: MerkleConfig,
+where
+    W::MerkleConfig: MerkleConfig,
 {
     config: STIRConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField  + PrimeField, S: CryptographicSponge, W: Witness<F>>
-    Verifier<F> for STIRVerifier<F, S, W>
+impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> Verifier<F>
+    for STIRVerifier<F, S, W>
 where
     S::Config: Clone,
     W: Clone,
@@ -206,8 +212,7 @@ where
     }
 }
 
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
-    STIRVerifier<F, S, W>
+impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> STIRVerifier<F, S, W>
 where
     S::Config: Clone,
     W: Clone,

@@ -12,7 +12,14 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        commitment::{single::{SingleWitness, SingleWitnessArgument}, Witness}, crypto::{fields::Field256, fs, merkle_tree}, domain::Domain, ldt::{LowDegreeTest, Prover, Verifier}, stir::{config::STIRConfig, ldt::STIR}
+        commitment::{
+            single::{SingleWitness, SingleWitnessArgument},
+            Witness,
+        },
+        crypto::{fields::Field256, fs, merkle_tree},
+        domain::Domain,
+        ldt::{LowDegreeTest, Prover, Verifier},
+        stir::{config::STIRConfig, ldt::STIR},
     };
 
     type TestField = Field256;
@@ -29,8 +36,8 @@ mod tests {
         let config: STIRConfig<TestMerkleConfig, TestSpongeConfig> = STIRConfig {
             folding_factor: 16,
             num_rounds: 4,
-            merkle_leaf_hash_param,
-            merkle_two_to_one_param,
+            merkle_leaf_hash_param: merkle_leaf_hash_param.clone(),
+            merkle_two_to_one_param: merkle_two_to_one_param.clone(),
             num_out_of_domain_samples: 2,
             proof_of_work_bits: vec![2, 2, 2, 2, 2],
             repetitions: vec![2, 2, 2, 2, 2],
@@ -43,14 +50,14 @@ mod tests {
             STIR::<TestField, TestSpongeConfig, TestWitness>::new(config.clone());
 
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
-        SingleWitness::new(SingleWitnessArgument {
-            coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
-            domain: Domain::<TestField>::new(config.starting_degree, 0).unwrap(),
-            folding_factor: 1,
-            merkle_leaf_hash_param,
-            merkle_two_to_one_param,
-            sponge_config: config.sponge_config,
-        });
+            SingleWitness::new(SingleWitnessArgument {
+                coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
+                domain: Domain::<TestField>::new(config.starting_degree, 0).unwrap(),
+                folding_factor: 1,
+                merkle_leaf_hash_param,
+                merkle_two_to_one_param,
+                sponge_config: config.sponge_config,
+            });
 
         // prove
         let stir_proof = prover.prove(&witness);

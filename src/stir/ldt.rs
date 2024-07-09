@@ -6,19 +6,20 @@ use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness, ldt::{LowDegreeTest, Prover, Verifier}, stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier}
+    commitment::Witness,
+    ldt::{LowDegreeTest, Prover, Verifier},
+    stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
 };
 
-pub struct STIR<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
-
-{
+pub struct STIR<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> {
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
     _sponge_config: PhantomData<S>,
 }
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
-    LowDegreeTest<F> for STIR<F, S, W>
+impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>> LowDegreeTest<F>
+    for STIR<F, S, W>
 where
+    F: Absorb,
     W: Clone,
     W::ChallengeAnswers: Clone,
     W::MerkleConfig: MerkleConfig<Leaf = Vec<F>>,

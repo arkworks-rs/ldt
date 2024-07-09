@@ -6,5 +6,5 @@ pub mod fri;
 pub mod ldt;
 pub mod poly_utils;
 pub mod proof;
-// pub mod stir;
+pub mod stir;
 pub mod utils;

@@ -11,25 +11,6 @@ use crate::{
     utils::{squeeze_integer, stack_evaluations},
 };
 
-// pub struct SingleCommitment<M: MerkleConfig> {
-//     commitment_digest: M::InnerDigest,
-// }
-// impl<F: FftField, M: MerkleConfig<Leaf = Vec<F>>> Commitment<F>
-//     for SingleCommitment<M>
-// where
-//     M::InnerDigest: Absorb,
-// {
-//     type MerkleConfig = M;
-//     fn commitment_digest(&self) -> <<Self as Commitment<F>>::MerkleConfig as MerkleConfig>::InnerDigest {
-//         self.commitment_digest.clone()
-//     }
-//     fn new(argument: <Self::MerkleConfig as MerkleConfig>::InnerDigest) -> Self {
-//         Self {
-//             commitment_digest: argument,
-//         }
-//     }
-// }
-
 pub struct SingleWitness<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
     argument: SingleWitnessArgument<F, M, S>,
     coeff: DensePolynomial<F>,

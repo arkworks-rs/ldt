@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use ark_crypto_primitives::{
     merkle_tree::{Config as MerkleConfig, MerkleTree, Path},
     sponge::{Absorb, CryptographicSponge},
@@ -9,13 +7,18 @@ use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain,
 use ark_std::marker::PhantomData;
 
 use crate::{
-    commitment::Witness, domain::Domain, ldt::Prover, poly_utils, stir::{
+    commitment::Witness,
+    domain::Domain,
+    ldt::Prover,
+    poly_utils,
+    stir::{
         config::STIRConfig,
         proof::{STIRFinalRoundProof, STIRInnerRoundProof, STIRProof},
-    }, utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations}
+    },
+    utils::{self, dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
-pub struct STIRRoundState<F: FftField, M: MerkleConfig, S: CryptographicSponge> {
+pub struct STIRRoundState<F: FftField + Absorb, M: MerkleConfig, S: CryptographicSponge> {
     domain: Domain<F>,
     polynomial: DensePolynomial<F>,
     p_commitment: MerkleTree<M>,
@@ -25,8 +28,9 @@ pub struct STIRRoundState<F: FftField, M: MerkleConfig, S: CryptographicSponge> 
     sponge: S,
 }
 
-pub struct STIRProver<F: FftField  + PrimeField, S: CryptographicSponge, W: Witness<F>>
-where W::MerkleConfig: MerkleConfig
+pub struct STIRProver<F: FftField, S: CryptographicSponge, W: Witness<F>>
+where
+    W::MerkleConfig: MerkleConfig,
 {
     config: STIRConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
@@ -34,9 +38,10 @@ where W::MerkleConfig: MerkleConfig
     _sponge_config: PhantomData<S>,
 }
 
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
-    Prover<F> for STIRProver<F, S, W>
+impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> Prover<F>
+    for STIRProver<F, S, W>
 where
+    F: Absorb,
     S::Config: Clone,
     W: Clone,
     W::ChallengeAnswers: Clone,
@@ -62,10 +67,13 @@ where
         // get evaluations over a domain
         let domain: Domain<F> =
             Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
-        let committed_values: Vec<F> = witness.coeff()
+        // let poly = witness.coeff() as DensePolynomial<F>;
+        let evals: Vec<F> = witness
+            .coeff()
             .evaluate_over_domain_by_ref(domain.backing_domain)
             .evals;
-        let p_evaluations: Vec<Vec<F>> = utils::stack_evaluations(committed_values, self.config.folding_factor);
+        let committed_values: Vec<Vec<F>> =
+            utils::stack_evaluations(evals, self.config.folding_factor);
         // let committed_values =
         //     witness.folded_evaluations_over_domain(domain.clone(), self.config.folding_factor);
 
@@ -73,7 +81,7 @@ where
         let p_commitment = MerkleTree::<W::MerkleConfig>::new(
             &self.config.merkle_leaf_hash_param,
             &self.config.merkle_two_to_one_param,
-            committed_values,
+            &committed_values,
         )
         .unwrap();
 
@@ -81,7 +89,7 @@ where
         let mut current_round_state: STIRRoundState<F, W::MerkleConfig, S> =
             Self::get_round_state_from_commitment(
                 &p_commitment,
-                vec![committed_values],
+                committed_values,
                 &domain,
                 witness.coeff(),
                 &self.config.sponge_config,
@@ -109,8 +117,7 @@ where
     }
 }
 
-impl<F: FftField + PrimeField, S: CryptographicSponge, W: Witness<F>>
-    STIRProver<F, S, W>
+impl<F: FftField + PrimeField + Absorb, S: CryptographicSponge, W: Witness<F>> STIRProver<F, S, W>
 where
     S::Config: Clone,
     W: Clone,
@@ -176,7 +183,10 @@ where
     fn compute_inner_round(
         config: &STIRConfig<W::MerkleConfig, S>,
         mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
-    ) -> (STIRRoundState<F, W::MerkleConfig, S>, STIRInnerRoundProof<F, W::MerkleConfig>) {
+    ) -> (
+        STIRRoundState<F, W::MerkleConfig, S>,
+        STIRInnerRoundProof<F, W::MerkleConfig>,
+    ) {
         // Step 1: Perform fold/scale operation
         let (folded_polynomial, mut scaled_domain, folded_evaluations) = Self::fold_polynomial(
             round_state.polynomial.clone(),
@@ -285,9 +295,13 @@ where
             dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
         return random_queries;
     }
-    fn get_inclusion_proofs(p_commitment: MerkleTree<W::MerkleConfig>, leaf_indices: Vec<usize>) -> Vec<Path<W::MerkleConfig>> {
+    fn get_inclusion_proofs(
+        p_commitment: MerkleTree<W::MerkleConfig>,
+        leaf_indices: Vec<usize>,
+    ) -> Vec<Path<W::MerkleConfig>> {
         // TODO: change this back to multiproof API
-        let mut inclusion_proofs: Vec<Path<W::MerkleConfig>> = Vec::with_capacity(leaf_indices.len());
+        let mut inclusion_proofs: Vec<Path<W::MerkleConfig>> =
+            Vec::with_capacity(leaf_indices.len());
         for leaf_index in leaf_indices {
             inclusion_proofs.push(p_commitment.generate_proof(leaf_index).unwrap());
         }
