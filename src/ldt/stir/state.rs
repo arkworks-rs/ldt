@@ -84,6 +84,9 @@ where
     // pub fn sponge(&self) -> S {
     //     self.sponge
     // }
+    pub fn round_num(&self) -> usize {
+        self.round_num
+    }
     pub fn sponge_absorb(&mut self, element: impl Absorb) {
         self.sponge.absorb(&element);
     }

@@ -110,13 +110,17 @@ where
         );
 
         // Step 2: Generate challenges and answers
-        let (_, committed_values, challenge_answers) = Self::generate_sampling(
-            &mut round_state.sponge,
-            round_state.domain,
+        let tmp_round_num = round_state.round_num;
+        let tmp_domain = round_state.domain.clone();
+        let challenges = Self::challenges(
+            &mut round_state,
+            tmp_domain.size() / config.folding_factor,
+            config.repetitions[tmp_round_num],
+        );
+        let (committed_values, challenge_answers) = Self::challenge_answers(
+            challenges,
             round_state.commitment.clone(),
             round_state.committed_values,
-            config.repetitions[config.num_rounds],
-            config.folding_factor,
         );
 
         // Step 3: Proof of work
@@ -164,7 +168,7 @@ where
 
         // Step 3: Out of domain samples
         let (out_of_domain_samples, out_of_domain_evaluations) =
-            Self::out_of_domain_sample(&mut round_state, config.num_out_of_domain_samples);
+            Self::out_of_domain_samples(&mut round_state, config.num_out_of_domain_samples);
         // put it in the sponge
         round_state.sponge_absorb(&out_of_domain_evaluations);
 
@@ -173,13 +177,16 @@ where
         round_state.update_folding_randomness();
 
         // Step 5: Generate challenges and answers
-        let (challenges, committed_values, challenge_answers) = Self::generate_sampling(
-            &mut round_state.sponge,
-            last_round_domain,
+        let tmp_round_num = round_state.round_num;
+        let challenges = Self::challenges(
+            &mut round_state,
+            last_round_domain.size() / config.folding_factor,
+            config.repetitions[tmp_round_num],
+        );
+        let (committed_values, challenge_answers) = Self::challenge_answers(
+            challenges.clone(),
             last_round_commitment,
             last_round_committed_values,
-            config.repetitions[round_state.round_num],
-            config.folding_factor,
         );
 
         // Step 6: Proof of work
@@ -201,7 +208,7 @@ where
         );
 
         // Step 7: Compute polynomials
-        let (answer_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
+        let (answer_coeff, shake_coeff, witness_coeff) = Self::compute_polynomials(
             quotient_set,
             quotient_answers,
             round_state.coeff,
@@ -212,7 +219,7 @@ where
         (
             STIRRoundState {
                 domain: round_state.domain,
-                coeff: witness_polynomial,
+                coeff: witness_coeff,
                 commitment: round_commitment,
                 committed_values: round_state.committed_values,
                 folding_randomness: round_state.folding_randomness,
@@ -224,64 +231,38 @@ where
                 out_of_domain_evaluations,
                 committed_values,
                 challenge_answers,
-                coeff: answer_polynomial,
+                coeff: answer_coeff,
                 is_final_round: false,
-                shake_coeff: shake_polynomial,
+                shake_coeff: shake_coeff,
                 proof_of_work_nonce,
             },
         )
     }
-    fn get_leaf_values_from_queries(queries: Vec<usize>, evaluations: Vec<Vec<F>>) -> Vec<Vec<F>> {
-        queries
-            .iter()
-            .map(|index| evaluations[*index].clone())
-            .collect()
-    }
-    fn squeeze_queries(
-        sponge: &mut S,
-        domain: Domain<F>,
+    fn challenges(
+        round_state: &mut STIRRoundState<F, M, S>,
+        scaling_factor: usize,
         num_repetitions: usize,
-        folding_factor: usize,
     ) -> Vec<usize> {
-        let scaling_factor: usize = domain.size() / folding_factor;
-        // TODO: how would you get a dupe? And would't you be short one query if you did get one?
-        let random_queries: Vec<usize> =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
-        return random_queries;
-    }
-    fn get_inclusion_proofs(
-        p_commitment: MerkleTree<W::MerkleConfig>,
-        leaf_indices: Vec<usize>,
-    ) -> Vec<Path<W::MerkleConfig>> {
-        // TODO: change this back to multiproof API
-        let mut inclusion_proofs: Vec<Path<W::MerkleConfig>> =
-            Vec::with_capacity(leaf_indices.len());
-        for leaf_index in leaf_indices {
-            inclusion_proofs.push(p_commitment.generate_proof(leaf_index).unwrap());
-        }
-        inclusion_proofs
-    }
-    fn generate_sampling(
-        sponge: &mut S,
-        domain: Domain<F>,
-        p_commitment: MerkleTree<W::MerkleConfig>,
-        evaluations: Vec<Vec<F>>,
-        num_repetitions: usize,
-        folding_factor: usize,
-    ) -> (Vec<usize>, Vec<Vec<F>>, Vec<Path<W::MerkleConfig>>) {
-        let random_queries: Vec<usize> =
-            Self::squeeze_queries(sponge, domain.clone(), num_repetitions, folding_factor);
-        let leaf_values_of_queries: Vec<Vec<F>> =
-            Self::get_leaf_values_from_queries(random_queries.clone(), evaluations);
-        let inclusion_proofs_of_queries: Vec<Path<W::MerkleConfig>> =
-            Self::get_inclusion_proofs(p_commitment, random_queries.clone());
-        (
-            random_queries,
-            leaf_values_of_queries,
-            inclusion_proofs_of_queries,
+        dedup(
+            (0..num_repetitions).map(|_| squeeze_integer(&mut round_state.sponge, scaling_factor)),
         )
     }
-    fn out_of_domain_sample(
+    fn challenge_answers(
+        challenges: Vec<usize>,
+        last_round_commitment: MerkleTree<M>,
+        last_round_committed_values: Vec<Vec<F>>,
+    ) -> (Vec<Vec<F>>, Vec<Path<M>>) {
+        let challenge_values: Vec<Vec<F>> = challenges
+            .iter()
+            .map(|index| last_round_committed_values[*index].clone())
+            .collect();
+        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(challenge_values.len());
+        for challenge in challenges {
+            challenge_answers.push(last_round_commitment.generate_proof(challenge).unwrap());
+        }
+        (challenge_values, challenge_answers)
+    }
+    fn out_of_domain_samples(
         round_state: &mut STIRRoundState<F, M, S>,
         num_samples: usize,
     ) -> (Vec<F>, Vec<F>) {
@@ -320,34 +301,33 @@ where
     fn compute_polynomials(
         quotient_set: Vec<F>,
         quotient_answers: Vec<(F, F)>,
-        polynomial: DensePolynomial<F>,
-        comb_randomness: F,
+        coeff: DensePolynomial<F>,
+        proximity_generator_randomness: F,
     ) -> (DensePolynomial<F>, DensePolynomial<F>, DensePolynomial<F>) {
         // Perform naive interpolation to get the answer polynomial
-        let answer_polynomial = poly_utils::interpolation::naive_interpolation(&quotient_answers);
+        let answer_coeff = poly_utils::interpolation::naive_interpolation(&quotient_answers);
 
         // Initialize shake_polynomial as an empty polynomial
-        let mut shake_polynomial = DensePolynomial::from_coefficients_vec(vec![]);
+        let mut shake_coeff = DensePolynomial::from_coefficients_vec(vec![]);
         for (x, y) in &quotient_answers {
-            let num_polynomial =
-                &answer_polynomial - &DensePolynomial::from_coefficients_vec(vec![*y]);
-            let den_polynomial = DensePolynomial::from_coefficients_vec(vec![-*x, F::ONE]);
-            shake_polynomial = shake_polynomial + (&num_polynomial / &den_polynomial);
+            let num_coeff = &answer_coeff - &DensePolynomial::from_coefficients_vec(vec![*y]);
+            let den_coeff = DensePolynomial::from_coefficients_vec(vec![-*x, F::ONE]);
+            shake_coeff = shake_coeff + (&num_coeff / &den_coeff);
         }
 
         // Compute the quotient polynomial
-        let quotient_polynomial = poly_utils::quotient::poly_quotient(&polynomial, &quotient_set);
+        let quotient_coeff = poly_utils::quotient::poly_quotient(&coeff, &quotient_set);
 
         // Compute the scaling polynomial: 1 + r * x + r^2 * x^2 + ... + r^n * x^n
         let scaling_polynomial = DensePolynomial::from_coefficients_vec(
             (0..=quotient_set.len())
-                .map(|i| comb_randomness.pow([i as u64]))
+                .map(|i| proximity_generator_randomness.pow([i as u64]))
                 .collect(),
         );
 
         // Compute the witness polynomial
-        let witness_polynomial = &quotient_polynomial * &scaling_polynomial;
+        let witness_coeff = &quotient_coeff * &scaling_polynomial;
 
-        (answer_polynomial, shake_polynomial, witness_polynomial)
+        (answer_coeff, shake_coeff, witness_coeff)
     }
 }
