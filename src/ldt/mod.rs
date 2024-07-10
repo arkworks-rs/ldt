@@ -1,3 +1,7 @@
+pub mod direct;
+pub mod fri;
+pub mod stir;
+
 use ark_ff::FftField;
 
 pub trait Prover<F: FftField> {

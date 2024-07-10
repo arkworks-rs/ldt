@@ -7,11 +7,13 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    fri::{
-        config::FRIConfig,
-        proof::{FRIProof, FRIRoundProof},
+    ldt::{
+        fri::{
+            config::FRIConfig,
+            proof::{FRIProof, FRIRoundProof},
+        },
+        Prover,
     },
-    ldt::Prover,
     poly_utils,
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
     witness::Witness,

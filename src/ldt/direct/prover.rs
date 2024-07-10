@@ -7,8 +7,10 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    direct::{config::DirectConfig, proof::DirectProof},
-    ldt::Prover,
+    ldt::{
+        direct::{config::DirectConfig, proof::DirectProof},
+        Prover,
+    },
     witness::Witness,
 };
 
@@ -60,7 +62,6 @@ where
     fn prove(&self, witness: &W) -> Self::Proof {
         let challenges = witness.challenges(self.config.num_challenges);
         DirectProof::<F, M, S>::new(
-            challenges.clone(),
             witness.challenge_answers(challenges),
             witness.committed_values(),
             self.config.merkle_leaf_hash_param.clone(),

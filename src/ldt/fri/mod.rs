@@ -14,8 +14,10 @@ mod tests {
     use crate::{
         crypto::{fields::Field256, fs, merkle_tree},
         domain::Domain,
-        fri::{config::FRIConfig, ldt::FRI},
-        ldt::{LowDegreeTest, Prover, Verifier},
+        ldt::{
+            fri::{config::FRIConfig, ldt::FRI},
+            LowDegreeTest, Prover, Verifier,
+        },
         witness::{
             single::{SingleWitness, SingleWitnessArgument},
             Witness,

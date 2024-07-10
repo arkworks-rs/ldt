@@ -6,8 +6,10 @@ use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    fri::{config::FRIConfig, proof::FRIProof, prover::FRIProver, verifier::FRIVerifier},
-    ldt::{LowDegreeTest, Prover, Verifier},
+    ldt::{
+        fri::{config::FRIConfig, proof::FRIProof, prover::FRIProver, verifier::FRIVerifier},
+        LowDegreeTest, Prover, Verifier,
+    },
     witness::Witness,
 };
 

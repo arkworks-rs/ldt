@@ -11,8 +11,10 @@ use ark_std::marker::PhantomData;
 use crate::{
     claim::single::SingleClaim,
     domain::Domain,
-    fri::{config::FRIConfig, proof::FRIProof},
-    ldt::Verifier,
+    ldt::{
+        fri::{config::FRIConfig, proof::FRIProof},
+        Verifier,
+    },
     poly_utils,
     utils::{dedup, proof_of_work_verify, squeeze_integer},
     witness::Witness,

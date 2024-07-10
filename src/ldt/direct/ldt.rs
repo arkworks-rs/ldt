@@ -6,8 +6,10 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},
-    ldt::{LowDegreeTest, Prover, Verifier},
+    ldt::{
+        direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},
+        LowDegreeTest, Prover, Verifier,
+    },
     witness::Witness,
 };
 

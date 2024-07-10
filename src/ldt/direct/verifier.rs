@@ -7,8 +7,10 @@ use ark_std::marker::PhantomData;
 
 use crate::{
     claim::single::SingleClaim,
-    direct::{config::DirectConfig, proof::DirectProof},
-    ldt::Verifier,
+    ldt::{
+        direct::{config::DirectConfig, proof::DirectProof},
+        Verifier,
+    },
     utils::squeeze_integer,
     witness::Witness,
 };

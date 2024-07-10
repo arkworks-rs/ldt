@@ -27,7 +27,6 @@ where
     S: CryptographicSponge,
 {
     pub fn new(
-        challenges: Vec<usize>,
         challenge_answers: Vec<Path<M>>,
         committed_values: Vec<Vec<F>>,
         merkle_leaf_hash_param: LeafParam<M>,
