@@ -17,7 +17,7 @@ use crate::{
         Prover,
     },
     poly_utils,
-    utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
+    utils::{dedup, proof_of_work, squeeze_integer},
     witness::Witness,
 };
 
@@ -144,48 +144,43 @@ where
         STIRRoundState<F, W::MerkleConfig, S>,
         STIRRoundProof<F, W::MerkleConfig>,
     ) {
-        let last_round_coeff = round_state.coeff.clone();
         let last_round_domain = round_state.domain.clone();
         let last_round_commitment = round_state.commitment.clone();
         let last_round_committed_values = round_state.committed_values.clone();
 
         // Step 1: Perform fold/scale operation
-        let (round_coeff, round_domain, round_committed_values) =
-            round_state.fold(config.folding_factor, round_state.folding_randomness);
+        round_state.fold(config.folding_factor);
 
-        // Step 2: Generate commitment using a Merkle Tree
+        // Step 2: Generate commitment on the folded stuff
         let round_commitment = MerkleTree::<W::MerkleConfig>::new(
             &config.merkle_leaf_hash_param,
             &config.merkle_two_to_one_param,
-            &round_committed_values,
+            &round_state.committed_values,
         )
         .unwrap();
+        // put it in the sponge
         let round_commitment_digest = round_commitment.root();
         round_state.sponge_absorb(&round_commitment_digest);
 
-        // Step 3: Out of domain sampling
+        // Step 3: Out of domain samples
         let (out_of_domain_samples, out_of_domain_evaluations) =
-            Self::get_out_of_domain_evaluations(
-                &mut round_state,
-                round_coeff.clone(),
-                config.num_out_of_domain_samples,
-            );
+            Self::out_of_domain_sample(&mut round_state, config.num_out_of_domain_samples);
+        // put it in the sponge
         round_state.sponge_absorb(&out_of_domain_evaluations);
 
         // Step 4: Squeeze some randomness
-        let proximity_generator_randomness: F = round_state.sponge_squeeze();
-        let next_round_folding_randomness: F = round_state.sponge_squeeze();
+        let proximity_generator_randomness = round_state.sponge_squeeze();
+        round_state.update_folding_randomness();
 
         // Step 5: Generate challenges and answers
-        let (random_queries, leaf_values_of_queries, inclusion_proofs_of_queries) =
-            Self::generate_sampling(
-                &mut round_state.sponge,
-                last_round_domain,
-                last_round_commitment,
-                last_round_committed_values,
-                config.repetitions[round_state.round_num],
-                config.folding_factor,
-            );
+        let (challenges, committed_values, challenge_answers) = Self::generate_sampling(
+            &mut round_state.sponge,
+            last_round_domain,
+            last_round_commitment,
+            last_round_committed_values,
+            config.repetitions[round_state.round_num],
+            config.folding_factor,
+        );
 
         // Step 6: Proof of work
         let proof_of_work_nonce = proof_of_work(
@@ -198,9 +193,9 @@ where
 
         // Step 6: Generate quotient set and answers
         let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
-            round_domain.clone(),
-            round_coeff.clone(),
-            random_queries,
+            round_state.domain.clone(),
+            round_state.coeff.clone(),
+            challenges,
             out_of_domain_samples,
             config.folding_factor,
         );
@@ -209,26 +204,26 @@ where
         let (answer_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
             quotient_set,
             quotient_answers,
-            round_coeff,
+            round_state.coeff,
             proximity_generator_randomness,
         );
 
         // Step 8: Return
         (
             STIRRoundState {
-                domain: round_domain,
+                domain: round_state.domain,
                 coeff: witness_polynomial,
                 commitment: round_commitment,
-                committed_values: round_committed_values,
-                folding_randomness: next_round_folding_randomness,
+                committed_values: round_state.committed_values,
+                folding_randomness: round_state.folding_randomness,
                 round_num: round_state.round_num + 1,
                 sponge: round_state.sponge,
             },
             STIRRoundProof {
                 commitment_digest: round_commitment_digest,
                 out_of_domain_evaluations,
-                committed_values: leaf_values_of_queries,
-                challenge_answers: inclusion_proofs_of_queries,
+                committed_values,
+                challenge_answers,
                 coeff: answer_polynomial,
                 is_final_round: false,
                 shake_coeff: shake_polynomial,
@@ -286,17 +281,16 @@ where
             inclusion_proofs_of_queries,
         )
     }
-    fn get_out_of_domain_evaluations(
+    fn out_of_domain_sample(
         round_state: &mut STIRRoundState<F, M, S>,
-        coeff: DensePolynomial<F>,
         num_samples: usize,
     ) -> (Vec<F>, Vec<F>) {
-        let out_of_domain_samples: Vec<F> = round_state.sponge_squeeze_multiple(num_samples);
-        let evaluations: Vec<F> = out_of_domain_samples
+        let points: Vec<F> = round_state.sponge_squeeze_multiple(num_samples);
+        let evals: Vec<F> = points
             .iter()
-            .map(|sample| coeff.evaluate(sample))
+            .map(|point| round_state.coeff.evaluate(point))
             .collect();
-        (out_of_domain_samples, evaluations)
+        (points, evals)
     }
     fn get_quotient_set_and_answers(
         domain: Domain<F>,

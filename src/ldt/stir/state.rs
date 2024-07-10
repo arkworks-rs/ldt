@@ -60,22 +60,20 @@ where
     // pub fn domain(&self) -> Domain<F> {
     //     self.domain.clone()
     // }
-    pub fn fold(
-        &self,
-        folding_factor: usize,
-        folding_randomness: F,
-    ) -> (DensePolynomial<F>, Domain<F>, Vec<Vec<F>>) {
-        let folded_coeff =
-            poly_utils::folding::poly_fold(&self.coeff.clone(), folding_factor, folding_randomness);
+    pub fn fold(&mut self, folding_factor: usize) {
+        let folded_coeff = poly_utils::folding::poly_fold(
+            &self.coeff.clone(),
+            folding_factor,
+            self.folding_randomness,
+        );
         let scaled_domain = self.domain.clone().scale_offset(2);
         let evals = folded_coeff
             .evaluate_over_domain_by_ref(scaled_domain.backing_domain)
             .evals;
         let folded_committed_values = stack_evaluations(evals, folding_factor);
-        (folded_coeff, scaled_domain, folded_committed_values)
-        // self.coeff = folded_coeff;
-        // self.domain = scaled_domain;
-        // self.committed_values = folded_committed_values;
+        self.coeff = folded_coeff;
+        self.domain = scaled_domain;
+        self.committed_values = folded_committed_values;
     }
     // pub fn folding_randomness(&self) -> F {
     //     self.folding_randomness
@@ -94,5 +92,8 @@ where
     }
     pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
         self.sponge.squeeze_field_elements(num_elements)
+    }
+    pub fn update_folding_randomness(&mut self) {
+        self.folding_randomness = self.sponge_squeeze();
     }
 }
