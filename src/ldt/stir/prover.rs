@@ -9,30 +9,17 @@ use ark_std::marker::PhantomData;
 use crate::{
     domain::Domain,
     ldt::{
-        stir::{config::STIRConfig, proof::STIRProof},
+        stir::{
+            config::STIRConfig,
+            proof::{STIRProof, STIRRoundProof},
+            state::STIRRoundState,
+        },
         Prover,
     },
     poly_utils,
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
     witness::Witness,
 };
-
-use super::proof::STIRRoundProof;
-
-pub struct STIRRoundState<F, M, S>
-where
-    F: FftField,
-    M: MerkleConfig,
-    S: CryptographicSponge,
-{
-    domain: Domain<F>,
-    coeff: DensePolynomial<F>,
-    commitment: MerkleTree<M>,
-    committed_values: Vec<Vec<F>>,
-    folding_randomness: F,
-    round_num: usize,
-    sponge: S,
-}
 
 pub struct STIRProver<F, M, S, W>
 where
@@ -67,36 +54,35 @@ where
         Self {
             config,
             _field: PhantomData::<F>,
-            _merkle_config: PhantomData::<W::MerkleConfig>,
+            _merkle_config: PhantomData::<M>,
             _sponge_config: PhantomData::<S>,
         }
     }
 
     fn prove(&self, witness: &W) -> Self::Proof {
-        // assert!(witness.coeff_degree() < self.config.starting_degree);
+        // TODO: (z-tech) what does this check mean?
+        assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        // Step 1: get initial state of the protocol
-        let mut current_round_state: STIRRoundState<F, W::MerkleConfig, S> =
-            Self::get_round_state_from_commitment(
-                &witness.commitment(),
-                witness.committed_values(),
-                &witness.domain(),
-                witness.coeff(),
-                &self.config.sponge_config,
-            );
+        // Step 1: get initial round state
+        let mut round_state = STIRRoundState::new(
+            witness.domain(),
+            witness.coeff(),
+            witness.commitment(),
+            witness.committed_values(),
+            self.config.sponge_config.clone(),
+        );
 
         // Step 2: compute inner rounds
-        let mut round_proofs: Vec<STIRRoundProof<F, W::MerkleConfig>> =
-            Vec::with_capacity(self.config.num_rounds);
+        let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
         for _round in 0..self.config.num_rounds {
-            let (round_state, round_proof) =
-                Self::compute_inner_round(&self.config, current_round_state);
-            current_round_state = round_state;
+            let (new_round_state, round_proof) =
+                Self::compute_inner_round(&self.config, round_state);
+            round_state = new_round_state;
             round_proofs.push(round_proof);
         }
 
         // Step 3: compute final round (v similar but fewer things)
-        let final_round_proof = Self::compute_final_round(&self.config, current_round_state);
+        let final_round_proof = Self::compute_final_round(&self.config, round_state);
         round_proofs.push(final_round_proof.clone());
 
         // Boom.
@@ -112,134 +98,6 @@ where
     S: CryptographicSponge,
     W: Witness<F, M, MerkleConfig = M>,
 {
-    fn get_round_state_from_commitment(
-        commitment: &MerkleTree<W::MerkleConfig>,
-        committed_values: Vec<Vec<F>>,
-        domain: &Domain<F>,
-        polynomial: DensePolynomial<F>,
-        sponge_config: &S::Config,
-    ) -> STIRRoundState<F, W::MerkleConfig, S> {
-        let mut sponge = S::new(sponge_config);
-        sponge.absorb(&commitment.root());
-        let folding_randomness = sponge.squeeze_field_elements(1)[0];
-        STIRRoundState {
-            domain: domain.clone(),
-            coeff: polynomial.clone(),
-            commitment: commitment.clone(),
-            committed_values: committed_values.clone(),
-            folding_randomness,
-            round_num: 0,
-            sponge,
-        }
-    }
-    // fn compute_round(
-    //     config: &STIRConfig<W::MerkleConfig, S>,
-    //     mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
-    //     is_final_round: bool,
-    // ) -> (
-    //     STIRRoundState<F, W::MerkleConfig, S>,
-    //     STIRRoundProof<F, W::MerkleConfig>,
-    // ) {
-    //     // Step 1: Perform fold/scale operation
-    //     let (folded_polynomial, mut scaled_domain, folded_evaluations) = Self::fold_polynomial(
-    //         round_state.coeff.clone(),
-    //         round_state.domain.clone(),
-    //         config.folding_factor,
-    //         round_state.folding_randomness,
-    //     );
-
-    //     // Step 2: Generate commitment using a Merkle Tree
-    //     let folded_p_commitment = MerkleTree::<W::MerkleConfig>::new(
-    //         &config.merkle_leaf_hash_param,
-    //         &config.merkle_two_to_one_param,
-    //         &folded_evaluations,
-    //     )
-    //     .unwrap();
-    //     let folded_p_commitment_root = folded_p_commitment.root();
-    //     round_state.sponge.absorb(&folded_p_commitment_root);
-
-    //     // Step 3: Out of domain sampling
-    //     let (out_of_domain_samples, out_of_domain_evaluations) =
-    //         Self::get_out_of_domain_evaluations(
-    //             &mut round_state.sponge,
-    //             folded_polynomial.clone(),
-    //             config.num_out_of_domain_samples,
-    //         );
-    //     round_state.sponge.absorb(&out_of_domain_evaluations);
-
-    //     // Step 4: Squeeze some randomness
-    //     let proximity_generator_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
-
-    //     // If it's the final round, no need for next round randomness
-    //     let next_round_folding_randomness: Option<F> = if !is_final_round {
-    //         Some(round_state.sponge.squeeze_field_elements(1)[0])
-    //     } else {
-    //         None
-    //     };
-
-    //     // Step 5: Generate challenges and answers
-    //     let (random_queries, leaf_values_of_queries, inclusion_proofs_of_queries) =
-    //         Self::generate_sampling(
-    //             &mut round_state.sponge,
-    //             round_state.domain,
-    //             round_state.commitment,
-    //             round_state.committed_values,
-    //             config.repetitions[round_state.round_num],
-    //             config.folding_factor,
-    //         );
-
-    //     // Step 6: Proof of work
-    //     let proof_of_work_nonce = proof_of_work(
-    //         &mut round_state.sponge,
-    //         config.proof_of_work_bits[round_state.round_num],
-    //     );
-
-    //     // Step 7: Squeeze more randomness (used by only verifier)
-    //     let _shake_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
-
-    //     // Step 8: Generate quotient set and answers
-    //     let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
-    //         &mut scaled_domain,
-    //         folded_polynomial.clone(),
-    //         random_queries,
-    //         out_of_domain_samples,
-    //         config.folding_factor,
-    //     );
-
-    //     // Step 9: Compute polynomials
-    //     let (answer_polynomial, shake_polynomial, witness_polynomial) = Self::compute_polynomials(
-    //         quotient_set,
-    //         quotient_answers,
-    //         folded_polynomial,
-    //         proximity_generator_randomness,
-    //     );
-
-    //     // Update the round state for the next round (if not final round)
-    //     let next_round_state = STIRRoundState {
-    //         domain: scaled_domain,
-    //         coeff: witness_polynomial,
-    //         commitment: folded_p_commitment,
-    //         committed_values: folded_evaluations,
-    //         folding_randomness: next_round_folding_randomness.unwrap_or(F::zero()), // Use zero or any placeholder if final round
-    //         round_num: round_state.round_num + 1,
-    //         sponge: round_state.sponge,
-    //     };
-
-    //     // Create the proof structure
-    //     let proof = STIRRoundProof {
-    //         commitment_digest: folded_p_commitment_root,
-    //         out_of_domain_evaluations,
-    //         committed_values: leaf_values_of_queries,
-    //         challenge_answers: inclusion_proofs_of_queries,
-    //         coeff: answer_polynomial,
-    //         is_final_round,
-    //         shake_coeff: shake_polynomial,
-    //         proof_of_work_nonce,
-    //     };
-
-    //     (next_round_state, proof)
-    // }
-
     fn compute_final_round(
         config: &STIRConfig<W::MerkleConfig, S>,
         mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
@@ -302,7 +160,7 @@ where
         )
         .unwrap();
         let folded_p_commitment_root = folded_p_commitment.root();
-        round_state.sponge.absorb(&folded_p_commitment_root);
+        round_state.sponge_absorb(&folded_p_commitment_root);
 
         // Step 3: Out of domain sampling
         let (out_of_domain_samples, out_of_domain_evaluations) =
@@ -311,19 +169,19 @@ where
                 folded_polynomial.clone(),
                 config.num_out_of_domain_samples,
             );
-        round_state.sponge.absorb(&out_of_domain_evaluations);
+        round_state.sponge_absorb(&out_of_domain_evaluations);
 
         // Step 4: Squeeze some randomness
-        let proximity_generator_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
-        let next_round_folding_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
+        let proximity_generator_randomness: F = round_state.sponge_squeeze();
+        let next_round_folding_randomness: F = round_state.sponge_squeeze();
 
         // Step 5: Generate challenges and answers
         let (random_queries, leaf_values_of_queries, inclusion_proofs_of_queries) =
             Self::generate_sampling(
                 &mut round_state.sponge,
-                round_state.domain,
-                round_state.commitment,
-                round_state.committed_values,
+                round_state.domain.clone(),
+                round_state.commitment.clone(),
+                round_state.committed_values.clone(),
                 config.repetitions[round_state.round_num],
                 config.folding_factor,
             );
@@ -335,7 +193,7 @@ where
         );
 
         // Step 7: Squeeze more randomness (used by only verifier)
-        let _shake_randomness: F = round_state.sponge.squeeze_field_elements(1)[0];
+        let _shake_randomness: F = round_state.sponge_squeeze();
 
         // Step 6: Generate quotient set and answers
         let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
@@ -354,7 +212,7 @@ where
             proximity_generator_randomness,
         );
 
-        // Boom.
+        // Step 8: Return
         (
             STIRRoundState {
                 domain: scaled_domain,
