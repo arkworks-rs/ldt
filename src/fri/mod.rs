@@ -64,6 +64,6 @@ mod tests {
         let fri_proof = prover.prove(&witness);
 
         // verify
-        assert_eq!(verifier.verify(&fri_proof), true);
+        assert_eq!(verifier.verify(&witness.claim(), &fri_proof), true);
     }
 }

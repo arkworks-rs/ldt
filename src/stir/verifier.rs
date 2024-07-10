@@ -7,6 +7,7 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2
 use ark_std::marker::PhantomData;
 
 use crate::{
+    claim::single::SingleClaim,
     domain::Domain,
     ldt::Verifier,
     poly_utils,
@@ -101,6 +102,7 @@ where
     W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
 {
+    type Claim = SingleClaim<M>;
     type VerifierConfig = STIRConfig<M, S>;
     type Proof = STIRProof<F, M>;
 
@@ -113,13 +115,13 @@ where
             _witness: PhantomData::<W>,
         }
     }
-    fn verify(&self, proof: &Self::Proof) -> bool {
+    fn verify(&self, claim: &Self::Claim, proof: &Self::Proof) -> bool {
         if proof.final_round_proof.coeff.degree() + 1 > self.config.stopping_degree {
             return false;
         }
 
         // First we verify all Merkle paths
-        let mut current_root = proof.initial_commitment_digest.clone();
+        let mut current_root = claim.commitment_digest();
         for round_proof in &proof.inner_round_proofs {
             for (leaf_value, inclusion_proof) in round_proof
                 .committed_values

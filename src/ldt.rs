@@ -8,10 +8,11 @@ pub trait Prover<F: FftField> {
     fn prove(&self, witness: &Self::Witness) -> Self::Proof;
 }
 pub trait Verifier<F: FftField> {
+    type Claim;
     type Proof;
     type VerifierConfig;
     fn new(verifier_config: Self::VerifierConfig) -> Self;
-    fn verify(&self, proof: &Self::Proof) -> bool;
+    fn verify(&self, commitment: &Self::Claim, proof: &Self::Proof) -> bool;
 }
 pub trait LowDegreeTest<F: FftField> {
     type LDTConfig;

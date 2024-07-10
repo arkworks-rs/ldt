@@ -6,6 +6,7 @@ use ark_ff::FftField;
 use ark_poly::{univariate::DensePolynomial, Polynomial};
 
 use crate::{
+    claim::single::SingleClaim,
     domain::Domain,
     utils::{squeeze_integer, stack_evaluations},
     witness::Witness,
@@ -37,6 +38,7 @@ where
     type CommittedValues = Vec<Vec<F>>;
     type Challenges = Vec<usize>;
     type ChallengeAnswers = Vec<Path<M>>;
+    type Claim = SingleClaim<M>;
     type MerkleConfig = M;
 
     fn new(argument: Self::Argument) -> Self {
@@ -94,6 +96,9 @@ where
             challenge_answers.push(self.commitment.generate_proof(challenge).unwrap());
         }
         challenge_answers
+    }
+    fn claim(&self) -> Self::Claim {
+        SingleClaim::<M>::new(self.commitment_digest())
     }
     fn domain(&self) -> Domain<F> {
         self.domain.clone()

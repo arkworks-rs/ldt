@@ -9,6 +9,7 @@ use ark_poly::{EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
+    claim::single::SingleClaim,
     domain::Domain,
     fri::{config::FRIConfig, proof::FRIProof},
     ldt::Verifier,
@@ -37,6 +38,7 @@ where
     S: CryptographicSponge,
     W: Witness<F, M>,
 {
+    type Claim = SingleClaim<M>;
     type VerifierConfig = FRIConfig<M, S>;
     type Proof = FRIProof<F, M>;
     fn new(verifier_config: FRIConfig<M, S>) -> Self {
@@ -47,7 +49,7 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn verify(&self, proof: &Self::Proof) -> bool {
+    fn verify(&self, claim: &Self::Claim, proof: &Self::Proof) -> bool {
         // TODO fix this
         // if proof.final_polynomial.degree() + 1 > self.parameters.stopping_degree {
         //     return false;
@@ -55,7 +57,7 @@ where
 
         // We do FS
         let mut sponge = S::new(&self.verifier_config.sponge_config);
-        sponge.absorb(&proof.initial_commitment_digest);
+        sponge.absorb(&claim.commitment_digest());
 
         let mut folding_randomnessness: Vec<F> = vec![];
         folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);

@@ -4,13 +4,14 @@ use ark_crypto_primitives::{
 };
 use ark_ff::FftField;
 
+use crate::utils::squeeze_integer;
+
 pub struct DirectProof<F, M, S>
 where
     F: FftField,
     M: MerkleConfig,
     S: CryptographicSponge,
 {
-    challenges: Vec<usize>,
     challenge_answers: Vec<Path<M>>,
     committed_values: Vec<Vec<F>>,
     merkle_leaf_hash_param: LeafParam<M>,
@@ -34,7 +35,6 @@ where
         sponge_config: S::Config,
     ) -> Self {
         Self {
-            challenges,
             challenge_answers,
             committed_values,
             merkle_leaf_hash_param,
@@ -42,8 +42,23 @@ where
             sponge_config,
         }
     }
-    fn verify(&self, commitment_digest: M::InnerDigest) -> bool {
-        for (&challenge, answer) in self.challenges.iter().zip(self.challenge_answers.clone()) {
+    pub fn challenges(
+        &self,
+        commitment_digest: M::InnerDigest,
+        num_challenges: usize,
+    ) -> Vec<usize> {
+        // absorb committment digest
+        let mut sponge = S::new(&self.sponge_config);
+        sponge.absorb(&commitment_digest);
+        // squeeze out the challenges as indices
+        let mut challenges = Vec::with_capacity(num_challenges);
+        for _ in 0..num_challenges {
+            challenges.push(squeeze_integer(&mut sponge, 32)); // TODO (z-tech): this range must be set properly
+        }
+        challenges
+    }
+    pub fn verify(&self, commitment_digest: M::InnerDigest, challenges: Vec<usize>) -> bool {
+        for (&challenge, answer) in challenges.iter().zip(self.challenge_answers.clone()) {
             // the answer given should correspond to the correct challenge
             if !answer.leaf_index == challenge {
                 return false;

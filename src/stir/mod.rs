@@ -64,6 +64,6 @@ mod tests {
         let stir_proof = prover.prove(&witness);
 
         // verify
-        assert_eq!(verifier.verify(&stir_proof), true);
+        assert_eq!(verifier.verify(&witness.claim(), &stir_proof), true);
     }
 }

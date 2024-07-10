@@ -13,7 +13,7 @@ mod tests {
 
     use crate::{
         crypto::{fields::Field256, fs, merkle_tree},
-        direct::{config::DirectConfig, ldt::DirectLDT},
+        direct::{self, config::DirectConfig, ldt::DirectLDT},
         domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
         witness::{
@@ -60,6 +60,6 @@ mod tests {
         let direct_proof = prover.prove(&witness);
 
         // verify
-        assert_eq!(verifier.verify(&direct_proof), true);
+        assert_eq!(verifier.verify(&witness.claim(), &direct_proof), true);
     }
 }
