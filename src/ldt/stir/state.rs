@@ -1,9 +1,9 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, MerkleTree},
+    merkle_tree::{Config as MerkleConfig, MerkleTree, Path},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
-use ark_poly::univariate::DensePolynomial;
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 
 use crate::{domain::Domain, poly_utils, utils::stack_evaluations};
 
@@ -13,12 +13,17 @@ where
     M: MerkleConfig,
     S: CryptographicSponge,
 {
+    pub answer_coeff: DensePolynomial<F>,
     pub domain: Domain<F>,
     pub coeff: DensePolynomial<F>,
+    pub challenge_answers: Vec<Path<M>>,
     pub commitment: MerkleTree<M>,
     pub committed_values: Vec<Vec<F>>,
     pub folding_randomness: F,
+    pub out_of_domain_evaluations: Vec<F>,
+    pub proof_of_work_nonce: Option<usize>,
     pub round_num: usize,
+    pub shake_coeff: DensePolynomial<F>,
     pub sponge: S,
 }
 
@@ -39,12 +44,17 @@ where
         let mut sponge = S::new(&sponge_config);
         sponge.absorb(&commitment.root());
         Self {
+            answer_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             domain,
+            challenge_answers: vec![],
             coeff,
             commitment,
             committed_values,
             folding_randomness: sponge.squeeze_field_elements(1)[0],
+            out_of_domain_evaluations: vec![],
+            proof_of_work_nonce: None,
             round_num: 0, // TODO: is this needed?
+            shake_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             sponge,
         }
     }

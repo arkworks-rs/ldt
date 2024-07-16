@@ -216,26 +216,33 @@ where
         );
 
         // Step 8: Return
+        let new_round_state = STIRRoundState {
+            answer_coeff: answer_coeff.clone(),
+            domain: round_state.domain,
+            challenge_answers: challenge_answers,
+            coeff: witness_coeff, // witness_coeff
+            commitment: round_commitment.clone(),
+            committed_values: round_state.committed_values,
+            folding_randomness: round_state.folding_randomness,
+            out_of_domain_evaluations: out_of_domain_evaluations.clone(),
+            proof_of_work_nonce: proof_of_work_nonce.clone(),
+            round_num: round_state.round_num + 1,
+            shake_coeff: shake_coeff.clone(),
+            sponge: round_state.sponge,
+        };
+        let new_round_proof = STIRRoundProof {
+            commitment_digest: new_round_state.commitment.root(),
+            out_of_domain_evaluations: new_round_state.out_of_domain_evaluations.clone(),
+            committed_values,
+            challenge_answers: new_round_state.challenge_answers.clone(),
+            coeff: answer_coeff,
+            is_final_round: false,
+            shake_coeff: new_round_state.shake_coeff.clone(),
+            proof_of_work_nonce: new_round_state.proof_of_work_nonce,
+        };
         (
-            STIRRoundState {
-                domain: round_state.domain,
-                coeff: witness_coeff,
-                commitment: round_commitment,
-                committed_values: round_state.committed_values,
-                folding_randomness: round_state.folding_randomness,
-                round_num: round_state.round_num + 1,
-                sponge: round_state.sponge,
-            },
-            STIRRoundProof {
-                commitment_digest: round_commitment_digest,
-                out_of_domain_evaluations,
-                committed_values,
-                challenge_answers,
-                coeff: answer_coeff,
-                is_final_round: false,
-                shake_coeff: shake_coeff,
-                proof_of_work_nonce,
-            },
+            new_round_state,
+            new_round_proof,
         )
     }
     fn challenges(
