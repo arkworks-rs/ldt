@@ -3,9 +3,13 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
-use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, Polynomial};
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial};
 
-use crate::{domain::Domain, poly_utils, utils::{dedup, squeeze_integer, stack_evaluations}};
+use crate::{
+    domain::Domain,
+    poly_utils,
+    utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
+};
 
 use super::proof::STIRRoundProof;
 
@@ -31,10 +35,14 @@ where
     pub merkle_leaf_hash_param: LeafParam<M>,
     pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub num_out_of_domain_samples: usize,
+    pub num_proof_of_work_bits: Vec<usize>,
     pub num_repetitions: Vec<usize>,
     pub out_of_domain_samples: Vec<F>,
     pub out_of_domain_evaluations: Vec<F>,
     pub proof_of_work_nonce: Option<usize>,
+    pub proximity_generator_randomness: F,
+    pub quotient_answers: Vec<F>,
+    pub quotient_set: Vec<F>,
     pub round_num: usize,
     pub shake_coeff: DensePolynomial<F>,
     pub sponge: S,
@@ -56,6 +64,7 @@ where
         merkle_leaf_hash_param: LeafParam<M>,
         merkle_two_to_one_param: TwoToOneParam<M>,
         num_out_of_domain_samples: usize,
+        num_proof_of_work_bits: Vec<usize>,
         num_repetitions: Vec<usize>,
         sponge_config: S::Config,
     ) -> Self {
@@ -83,11 +92,15 @@ where
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             num_out_of_domain_samples,
+            num_proof_of_work_bits,
             num_repetitions,
             out_of_domain_samples: vec![],
             out_of_domain_evaluations: vec![],
             proof_of_work_nonce: None,
-            round_num: 0, // TODO: is this needed?
+            proximity_generator_randomness: F::one(),
+            quotient_answers: vec![],
+            quotient_set: vec![],
+            round_num: 0,
             shake_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             sponge,
         }
@@ -155,16 +168,24 @@ where
         self.sponge.squeeze_field_elements(num_elements)
     }
     pub fn update_challenges(&mut self) {
-        self.challenges = dedup(
-            (0..self.num_repetitions[self.round_num]).map(|_| squeeze_integer(&mut self.sponge, self.last_round_domain_size / self.folding_factor)),
-        );
-        self.challenge_values = self.challenges
+        self.challenges = dedup((0..self.num_repetitions[self.round_num]).map(|_| {
+            squeeze_integer(
+                &mut self.sponge,
+                self.last_round_domain_size / self.folding_factor,
+            )
+        }));
+        self.challenge_values = self
+            .challenges
             .iter()
             .map(|index| self.last_round_committed_values[*index].clone())
             .collect();
         let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(self.challenge_values.len());
         for challenge in &self.challenges {
-            challenge_answers.push(self.last_round_commitment.generate_proof(*challenge).unwrap());
+            challenge_answers.push(
+                self.last_round_commitment
+                    .generate_proof(*challenge)
+                    .unwrap(),
+            );
         }
         self.challenge_answers = challenge_answers;
     }
@@ -184,10 +205,38 @@ where
     }
     pub fn update_out_of_domain_samples(&mut self) {
         self.out_of_domain_samples = self.sponge_squeeze_multiple(self.num_out_of_domain_samples);
-        self.out_of_domain_evaluations = self.out_of_domain_samples
-        .iter()
-        .map(|point| self.coeff.evaluate(point))
-        .collect();
+        self.out_of_domain_evaluations = self
+            .out_of_domain_samples
+            .iter()
+            .map(|point| self.coeff.evaluate(point))
+            .collect();
         self.sponge_absorb(&self.out_of_domain_evaluations.clone());
+    }
+    pub fn update_proof_of_work(&mut self) {
+        self.proof_of_work_nonce = proof_of_work(
+            &mut self.sponge,
+            self.num_proof_of_work_bits[self.round_num],
+        );
+    }
+    pub fn update_proximity_generator_randomness(&mut self) {
+        self.proximity_generator_randomness = self.sponge_squeeze();
+    }
+    pub fn update_quotient_answers(&mut self) {
+        let stir_randomness: Vec<F> = self
+            .challenges
+            .iter()
+            .map(|index| self.domain.scale(self.folding_factor).element(*index))
+            .collect();
+        self.quotient_set = self
+            .out_of_domain_samples
+            .clone()
+            .into_iter()
+            .chain(stir_randomness.iter().cloned())
+            .collect();
+        self.quotient_answers = self
+            .quotient_set
+            .iter()
+            .map(|x| self.coeff.evaluate(x))
+            .collect();
     }
 }

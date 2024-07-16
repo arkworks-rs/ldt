@@ -3,11 +3,10 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
-use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial};
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    domain::Domain,
     ldt::{
         stir::{
             config::STIRConfig,
@@ -72,6 +71,7 @@ where
             self.config.merkle_leaf_hash_param.clone(),
             self.config.merkle_two_to_one_param.clone(),
             self.config.num_out_of_domain_samples,
+            self.config.proof_of_work_bits.clone(),
             self.config.repetitions.clone(),
             self.config.sponge_config.clone(),
         );
@@ -148,9 +148,6 @@ where
         config: &STIRConfig<W::MerkleConfig, S>,
         mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
     ) -> STIRRoundState<F, M, S> {
-        let last_round_commitment = round_state.commitment.clone();
-        let last_round_committed_values = round_state.committed_values.clone();
-
         // Step 1: Perform fold/scale operation
         round_state.fold(config.folding_factor);
 
@@ -161,40 +158,31 @@ where
         round_state.update_out_of_domain_samples();
 
         // Step 4: Squeeze some randomness
-        let proximity_generator_randomness = round_state.sponge_squeeze();
+        round_state.update_proximity_generator_randomness();
         round_state.update_folding_randomness();
 
         // Step 5: Generate challenges and answers
         round_state.update_challenges();
 
         // Step 6: Proof of work
-        let proof_of_work_nonce = proof_of_work(
-            &mut round_state.sponge,
-            config.proof_of_work_bits[round_state.round_num],
-        );
+        round_state.update_proof_of_work();
 
         // Step 7: Squeeze more randomness (used by only verifier)
         let _shake_randomness: F = round_state.sponge_squeeze();
 
         // Step 6: Generate quotient set and answers
-        let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
-            round_state.domain.clone(),
-            round_state.coeff.clone(),
-            round_state.challenges.clone(),
-            round_state.out_of_domain_samples.clone(),
-            config.folding_factor,
-        );
+        round_state.update_quotient_answers();
 
         // Step 7: Compute polynomials
         let (answer_coeff, shake_coeff, witness_coeff) = Self::compute_polynomials(
-            quotient_set,
-            quotient_answers,
+            round_state.quotient_set.clone(),
+            round_state.quotient_answers.clone(),
             round_state.coeff,
-            proximity_generator_randomness,
+            round_state.proximity_generator_randomness.clone(),
         );
 
         // Step 8: Return
-        let new_round_state = STIRRoundState {
+        STIRRoundState {
             answer_coeff,
             domain: round_state.domain.clone(),
             challenge_answers: round_state.challenge_answers,
@@ -206,20 +194,23 @@ where
             folding_factor: round_state.folding_factor,
             folding_randomness: round_state.folding_randomness,
             last_round_domain_size: round_state.domain.size(),
-            last_round_commitment,
-            last_round_committed_values,
+            last_round_commitment: round_state.last_round_commitment,
+            last_round_committed_values: round_state.last_round_committed_values,
             merkle_leaf_hash_param: round_state.merkle_leaf_hash_param,
             merkle_two_to_one_param: round_state.merkle_two_to_one_param,
-            num_out_of_domain_samples: config.num_out_of_domain_samples,
+            num_out_of_domain_samples: round_state.num_out_of_domain_samples,
+            num_proof_of_work_bits: round_state.num_proof_of_work_bits,
             num_repetitions: round_state.num_repetitions,
             out_of_domain_samples: round_state.out_of_domain_samples.clone(),
             out_of_domain_evaluations: round_state.out_of_domain_evaluations.clone(),
-            proof_of_work_nonce: proof_of_work_nonce.clone(),
+            proof_of_work_nonce: round_state.proof_of_work_nonce.clone(),
+            proximity_generator_randomness: round_state.proximity_generator_randomness,
+            quotient_answers: round_state.quotient_answers,
+            quotient_set: round_state.quotient_set,
             round_num: round_state.round_num + 1,
             shake_coeff: shake_coeff.clone(),
             sponge: round_state.sponge,
-        };
-        new_round_state
+        }
     }
     fn challenges(
         round_state: &mut STIRRoundState<F, M, S>,
@@ -245,43 +236,23 @@ where
         }
         (challenge_values, challenge_answers)
     }
-    fn get_quotient_set_and_answers(
-        domain: Domain<F>,
-        polynomial: DensePolynomial<F>,
-        random_queries: Vec<usize>,
-        out_of_domain_samples: Vec<F>,
-        folding_factor: usize,
-    ) -> (Vec<F>, Vec<(F, F)>) {
-        let stir_randomness: Vec<F> = random_queries
-            .iter()
-            .map(|index| domain.scale(folding_factor).element(*index))
-            .collect();
-
-        // Then compute the set we are quotienting by
-        let quotient_set: Vec<F> = out_of_domain_samples
-            .into_iter()
-            .chain(stir_randomness.iter().cloned())
-            .collect();
-
-        // TODO: We can probably reuse this in quotient
-        let quotient_answers: Vec<(F, F)> = quotient_set
-            .iter()
-            .map(|x| (*x, polynomial.evaluate(x)))
-            .collect::<Vec<_>>();
-        (quotient_set, quotient_answers)
-    }
     fn compute_polynomials(
         quotient_set: Vec<F>,
-        quotient_answers: Vec<(F, F)>,
+        quotient_answers: Vec<F>,
         coeff: DensePolynomial<F>,
         proximity_generator_randomness: F,
     ) -> (DensePolynomial<F>, DensePolynomial<F>, DensePolynomial<F>) {
         // Perform naive interpolation to get the answer polynomial
-        let answer_coeff = poly_utils::interpolation::naive_interpolation(&quotient_answers);
+        let zipped: Vec<(F, F)> = quotient_set
+            .clone()
+            .into_iter()
+            .zip(quotient_answers.into_iter())
+            .collect();
+        let answer_coeff = poly_utils::interpolation::naive_interpolation(&zipped);
 
         // Initialize shake_polynomial as an empty polynomial
         let mut shake_coeff = DensePolynomial::from_coefficients_vec(vec![]);
-        for (x, y) in &quotient_answers {
+        for (x, y) in &zipped {
             let num_coeff = &answer_coeff - &DensePolynomial::from_coefficients_vec(vec![*y]);
             let den_coeff = DensePolynomial::from_coefficients_vec(vec![-*x, F::ONE]);
             shake_coeff = shake_coeff + (&num_coeff / &den_coeff);
