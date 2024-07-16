@@ -61,7 +61,7 @@ where
     fn prove(&self, witness: &W) -> Self::Proof {
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        // Step 1: initial round state from witness
+        // Step 1: initial state
         let mut round_state = STIRRoundState::new(
             witness.domain(),
             witness.commitment(),
@@ -72,6 +72,7 @@ where
             self.config.num_out_of_domain_samples,
             self.config.proof_of_work_bits.clone(),
             self.config.repetitions.clone(),
+            self.config.num_rounds,
             self.config.sponge_config.clone(),
             witness.coeff(),
         );
@@ -79,15 +80,17 @@ where
         // Step 2: compute inner rounds
         let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
         for _round in 0..self.config.num_rounds {
-            round_state.next_state();
+            round_state.next();
             // let new_round_state = Self::compute_inner_round(&self.config, round_state);
             // round_state = new_round_state;
             round_proofs.push(round_state.round_proof());
         }
 
         // Step 3: compute final round (v similar but fewer things)
-        let final_round_proof = Self::compute_final_round(&self.config, round_state);
-        round_proofs.push(final_round_proof.clone());
+        if round_state.is_final_round() {
+            let final_round_proof = Self::compute_final_round(&self.config, round_state);
+            round_proofs.push(final_round_proof.clone());
+        }
 
         // Boom.
         STIRProof::<F, M> { round_proofs }

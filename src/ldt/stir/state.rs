@@ -36,6 +36,7 @@ where
     pub num_out_of_domain_samples: usize,
     pub num_proof_of_work_bits: Vec<usize>,
     pub num_repetitions: Vec<usize>,
+    pub num_rounds: usize,
     pub out_of_domain_samples: Vec<F>,
     pub out_of_domain_evaluations: Vec<F>,
     pub proof_of_work_nonce: Option<usize>,
@@ -65,6 +66,7 @@ where
         num_out_of_domain_samples: usize,
         num_proof_of_work_bits: Vec<usize>,
         num_repetitions: Vec<usize>,
+        num_rounds: usize,
         sponge_config: S::Config,
         witness_coeff: DensePolynomial<F>,
     ) -> Self {
@@ -93,6 +95,7 @@ where
             num_out_of_domain_samples,
             num_proof_of_work_bits,
             num_repetitions,
+            num_rounds,
             out_of_domain_samples: vec![],
             out_of_domain_evaluations: vec![],
             proof_of_work_nonce: None,
@@ -143,7 +146,10 @@ where
     // pub fn sponge(&self) -> S {
     //     self.sponge
     // }
-    pub fn next_state(&mut self) {
+    pub fn is_final_round(&self) -> bool {
+        self.round_num == self.num_rounds
+    }
+    pub fn next(&mut self) {
         // Step 1: Perform fold/scale operation
         self.fold();
 
@@ -171,6 +177,9 @@ where
 
         // Step 7: Compute coeffs
         self.update_coeffs();
+
+        // Step 8: Increment
+        self.update_round_num();
     }
     pub fn round_num(&self) -> usize {
         self.round_num
@@ -244,8 +253,7 @@ where
                 .map(|i| self.proximity_generator_randomness.pow([i as u64]))
                 .collect(),
         );
-
-        // Compute the witness polynomial
+        // witness_coeff
         self.witness_coeff = &quotient_coeff * &scaling_coeff;
     }
     pub fn update_commitment(&mut self) {
@@ -297,5 +305,8 @@ where
             .iter()
             .map(|x| self.witness_coeff.evaluate(x))
             .collect();
+    }
+    pub fn update_round_num(&mut self) {
+        self.round_num = self.round_num + 1;
     }
 }
