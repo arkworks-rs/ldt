@@ -182,10 +182,10 @@ where
 
             // Step 7: Compute coeffs
             self.update_coeffs();
-        }
 
-        // Step 8: Increment
-        self.update_round_num();
+            // Step 8: Increment
+            self.update_round_num();
+        }
     }
     pub fn round_num(&self) -> usize {
         self.round_num

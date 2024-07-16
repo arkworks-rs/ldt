@@ -61,7 +61,7 @@ where
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
         // Step 1: initial state
-        let mut round_state = STIRRoundState::new(
+        let mut round_state = STIRRoundState::<F, M, S>::new(
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),
@@ -78,46 +78,12 @@ where
 
         // Step 2: compute inner rounds
         let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
-        for _round in 0..self.config.num_rounds {
+        for _round in 0..=self.config.num_rounds {
             round_state.next();
-            // let new_round_state = Self::compute_inner_round(&self.config, round_state);
-            // round_state = new_round_state;
             round_proofs.push(round_state.round_proof());
-        }
-
-        // Step 3: compute final round (v similar but fewer things)
-        if round_state.is_final_round() {
-            let final_round_proof = Self::compute_final_round(&self.config, round_state);
-            round_proofs.push(final_round_proof.clone());
         }
 
         // Boom.
         STIRProof::<F, M> { round_proofs }
-    }
-}
-
-impl<F, M, S, W> STIRProver<F, M, S, W>
-where
-    F: FftField + PrimeField + Absorb,
-    M: MerkleConfig<Leaf = Vec<F>>,
-    M::InnerDigest: Absorb,
-    S: CryptographicSponge,
-    W: Witness<F, M, MerkleConfig = M>,
-{
-    fn compute_final_round(
-        config: &STIRConfig<W::MerkleConfig, S>,
-        mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
-    ) -> STIRRoundProof<F, W::MerkleConfig> {
-        // Step 1: Perfom fold operation
-        round_state.fold();
-
-        // Step 2: Generate challenges and answers
-        round_state.update_challenges();
-
-        // Step 3: Proof of work
-        round_state.update_proof_of_work();
-
-        // Step 4: Return
-        round_state.round_proof()
     }
 }
