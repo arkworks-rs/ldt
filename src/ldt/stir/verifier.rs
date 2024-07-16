@@ -177,14 +177,14 @@ where
         }
 
         // Now, we sample the last points that we want to check consisntency at
-        let final_repetitions = self.config.repetitions[self.config.num_rounds];
+        let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
         let final_randomness_indexes =
             dedup((0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)));
 
         if !proof_of_work_verify(
             &mut sponge,
-            self.config.proof_of_work_bits[self.config.num_rounds],
+            self.config.num_proof_of_work_bits[self.config.num_rounds],
             proof.round_proofs.last().unwrap().proof_of_work_nonce,
         ) {
             return false;
@@ -440,14 +440,14 @@ where
         let new_folding_randomness = sponge.squeeze_field_elements(1)[0];
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
 
-        let num_repetitions = self.config.repetitions[verification_state.num_round];
+        let num_repetitions = self.config.num_repetitions[verification_state.num_round];
         let stir_randomness_indexes =
             dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
 
         // PoW verification
         if !proof_of_work_verify(
             sponge,
-            self.config.proof_of_work_bits[verification_state.num_round],
+            self.config.num_proof_of_work_bits[verification_state.num_round],
             round_proof.proof_of_work_nonce,
         ) {
             return None;

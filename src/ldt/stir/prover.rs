@@ -58,14 +58,7 @@ where
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),
-            self.config.folding_factor,
-            self.config.merkle_leaf_hash_param.clone(),
-            self.config.merkle_two_to_one_param.clone(),
-            self.config.num_out_of_domain_samples,
-            self.config.proof_of_work_bits.clone(),
-            self.config.repetitions.clone(),
-            self.config.num_rounds,
-            self.config.sponge_config.clone(),
+            self.config.clone(),
             witness.coeff(),
         )
         .map(|round| round.proof())
