@@ -70,6 +70,7 @@ where
             witness.committed_values(),
             self.config.merkle_leaf_hash_param.clone(),
             self.config.merkle_two_to_one_param.clone(),
+            self.config.num_out_of_domain_samples,
             self.config.sponge_config.clone(),
         );
 
@@ -156,10 +157,7 @@ where
         round_state.update_commitment();
 
         // Step 3: Out of domain samples
-        let (out_of_domain_samples, out_of_domain_evaluations) =
-            Self::out_of_domain_samples(&mut round_state, config.num_out_of_domain_samples);
-        // put it in the sponge
-        round_state.sponge_absorb(&out_of_domain_evaluations);
+        round_state.update_out_of_domain_samples();
 
         // Step 4: Squeeze some randomness
         let proximity_generator_randomness = round_state.sponge_squeeze();
@@ -192,7 +190,7 @@ where
             round_state.domain.clone(),
             round_state.coeff.clone(),
             challenges,
-            out_of_domain_samples,
+            round_state.out_of_domain_samples.clone(),
             config.folding_factor,
         );
 
@@ -216,7 +214,9 @@ where
             folding_randomness: round_state.folding_randomness,
             merkle_leaf_hash_param: round_state.merkle_leaf_hash_param,
             merkle_two_to_one_param: round_state.merkle_two_to_one_param,
-            out_of_domain_evaluations: out_of_domain_evaluations.clone(),
+            num_out_of_domain_samples: config.num_out_of_domain_samples,
+            out_of_domain_samples: round_state.out_of_domain_samples.clone(),
+            out_of_domain_evaluations: round_state.out_of_domain_evaluations.clone(),
             proof_of_work_nonce: proof_of_work_nonce.clone(),
             round_num: round_state.round_num + 1,
             shake_coeff: shake_coeff.clone(),
@@ -247,17 +247,6 @@ where
             challenge_answers.push(last_round_commitment.generate_proof(challenge).unwrap());
         }
         (challenge_values, challenge_answers)
-    }
-    fn out_of_domain_samples(
-        round_state: &mut STIRRoundState<F, M, S>,
-        num_samples: usize,
-    ) -> (Vec<F>, Vec<F>) {
-        let points: Vec<F> = round_state.sponge_squeeze_multiple(num_samples);
-        let evals: Vec<F> = points
-            .iter()
-            .map(|point| round_state.coeff.evaluate(point))
-            .collect();
-        (points, evals)
     }
     fn get_quotient_set_and_answers(
         domain: Domain<F>,

@@ -3,7 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
-use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, Polynomial};
 
 use crate::{domain::Domain, poly_utils, utils::stack_evaluations};
 
@@ -25,6 +25,8 @@ where
     pub folding_randomness: F,
     pub merkle_leaf_hash_param: LeafParam<M>,
     pub merkle_two_to_one_param: TwoToOneParam<M>,
+    pub num_out_of_domain_samples: usize,
+    pub out_of_domain_samples: Vec<F>,
     pub out_of_domain_evaluations: Vec<F>,
     pub proof_of_work_nonce: Option<usize>,
     pub round_num: usize,
@@ -34,7 +36,7 @@ where
 
 impl<F, M, S> STIRRoundState<F, M, S>
 where
-    F: FftField + PrimeField,
+    F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
@@ -46,6 +48,7 @@ where
         committed_values: Vec<Vec<F>>,
         merkle_leaf_hash_param: LeafParam<M>,
         merkle_two_to_one_param: TwoToOneParam<M>,
+        num_out_of_domain_samples: usize,
         sponge_config: S::Config,
     ) -> Self {
         let mut sponge = S::new(&sponge_config);
@@ -61,6 +64,8 @@ where
             folding_randomness: sponge.squeeze_field_elements(1)[0],
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
+            num_out_of_domain_samples,
+            out_of_domain_samples: vec![],
             out_of_domain_evaluations: vec![],
             proof_of_work_nonce: None,
             round_num: 0, // TODO: is this needed?
@@ -140,5 +145,13 @@ where
     }
     pub fn update_folding_randomness(&mut self) {
         self.folding_randomness = self.sponge_squeeze();
+    }
+    pub fn update_out_of_domain_samples(&mut self) {
+        self.out_of_domain_samples = self.sponge_squeeze_multiple(self.num_out_of_domain_samples);
+        self.out_of_domain_evaluations = self.out_of_domain_samples
+        .iter()
+        .map(|point| self.coeff.evaluate(point))
+        .collect();
+        self.sponge_absorb(&self.out_of_domain_evaluations.clone());
     }
 }
