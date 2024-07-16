@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, MerkleTree, Path},
+    merkle_tree::{Config as MerkleConfig, MerkleTree},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
@@ -16,7 +16,7 @@ use crate::{
         Prover,
     },
     poly_utils,
-    utils::{dedup, proof_of_work, squeeze_integer},
+    utils::proof_of_work,
     witness::Witness,
 };
 
@@ -117,19 +117,7 @@ where
         );
 
         // Step 2: Generate challenges and answers
-        // round_state.update_challenges();
-        let tmp_round_num = round_state.round_num;
-        let tmp_domain = round_state.domain.clone();
-        let challenges = Self::challenges(
-            &mut round_state,
-            tmp_domain.size() / config.folding_factor,
-            config.repetitions[tmp_round_num],
-        );
-        let (committed_values, challenge_answers) = Self::challenge_answers(
-            challenges,
-            round_state.commitment.clone(),
-            round_state.committed_values,
-        );
+        round_state.update_challenges_final_round();
 
         // Step 3: Proof of work
         let proof_of_work_nonce = proof_of_work(
@@ -140,37 +128,13 @@ where
         // Step 4: Return
         STIRRoundProof::new(
             coeff,
-            challenge_answers,
-            committed_values,
+            round_state.challenge_answers,
+            round_state.committed_values,
             true,
             vec![],
             round_state.commitment.root(),
             proof_of_work_nonce,
             DensePolynomial::<F>::from_coefficients_vec(Vec::new()),
         )
-    }
-    fn challenges(
-        round_state: &mut STIRRoundState<F, M, S>,
-        scaling_factor: usize,
-        num_repetitions: usize,
-    ) -> Vec<usize> {
-        dedup(
-            (0..num_repetitions).map(|_| squeeze_integer(&mut round_state.sponge, scaling_factor)),
-        )
-    }
-    fn challenge_answers(
-        challenges: Vec<usize>,
-        last_round_commitment: MerkleTree<M>,
-        last_round_committed_values: Vec<Vec<F>>,
-    ) -> (Vec<Vec<F>>, Vec<Path<M>>) {
-        let challenge_values: Vec<Vec<F>> = challenges
-            .iter()
-            .map(|index| last_round_committed_values[*index].clone())
-            .collect();
-        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(challenge_values.len());
-        for challenge in challenges {
-            challenge_answers.push(last_round_commitment.generate_proof(challenge).unwrap());
-        }
-        (challenge_values, challenge_answers)
     }
 }

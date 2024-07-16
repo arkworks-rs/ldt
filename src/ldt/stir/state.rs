@@ -120,6 +120,7 @@ where
     // pub fn domain(&self) -> Domain<F> {
     //     self.domain.clone()
     // }
+    pub fn final_round(&mut self) {}
     pub fn fold(&mut self) {
         self.last_round_domain_size = self.domain.size();
         let folded_coeff = poly_utils::folding::poly_fold(
@@ -150,6 +151,11 @@ where
         self.round_num == self.num_rounds
     }
     pub fn next(&mut self) {
+        // if self.is_final_round() {
+        //     self.final_round();
+        //     return;
+        // }
+
         // Step 1: Perform fold/scale operation
         self.fold();
 
@@ -224,6 +230,22 @@ where
                     .generate_proof(*challenge)
                     .unwrap(),
             );
+        }
+        self.challenge_answers = challenge_answers;
+    }
+    pub fn update_challenges_final_round(&mut self) {
+        self.challenges =
+            dedup((0..self.num_repetitions[self.round_num]).map(|_| {
+                squeeze_integer(&mut self.sponge, self.domain.size() / self.folding_factor)
+            }));
+        self.challenge_values = self
+            .challenges
+            .iter()
+            .map(|index| self.committed_values[*index].clone())
+            .collect();
+        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(self.challenge_values.len());
+        for challenge in &self.challenges {
+            challenge_answers.push(self.commitment.generate_proof(*challenge).unwrap());
         }
         self.challenge_answers = challenge_answers;
     }
