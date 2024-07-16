@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, MerkleTree, Path},
+    merkle_tree::{Config as MerkleConfig, LeafParam, MerkleTree, Path, TwoToOneParam},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
@@ -23,6 +23,8 @@ where
     pub commitment: MerkleTree<M>,
     pub committed_values: Vec<Vec<F>>,
     pub folding_randomness: F,
+    pub merkle_leaf_hash_param: LeafParam<M>,
+    pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub out_of_domain_evaluations: Vec<F>,
     pub proof_of_work_nonce: Option<usize>,
     pub round_num: usize,
@@ -33,7 +35,7 @@ where
 impl<F, M, S> STIRRoundState<F, M, S>
 where
     F: FftField + PrimeField,
-    M: MerkleConfig,
+    M: MerkleConfig<Leaf = Vec<F>>,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
 {
@@ -42,6 +44,8 @@ where
         coeff: DensePolynomial<F>,
         commitment: MerkleTree<M>,
         committed_values: Vec<Vec<F>>,
+        merkle_leaf_hash_param: LeafParam<M>,
+        merkle_two_to_one_param: TwoToOneParam<M>,
         sponge_config: S::Config,
     ) -> Self {
         let mut sponge = S::new(&sponge_config);
@@ -55,6 +59,8 @@ where
             commitment,
             committed_values,
             folding_randomness: sponge.squeeze_field_elements(1)[0],
+            merkle_leaf_hash_param,
+            merkle_two_to_one_param,
             out_of_domain_evaluations: vec![],
             proof_of_work_nonce: None,
             round_num: 0, // TODO: is this needed?
@@ -121,6 +127,16 @@ where
     }
     pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
         self.sponge.squeeze_field_elements(num_elements)
+    }
+    pub fn update_commitment(&mut self) {
+        self.commitment = MerkleTree::<M>::new(
+            &self.merkle_leaf_hash_param,
+            &self.merkle_two_to_one_param,
+            &self.committed_values,
+        )
+        .unwrap();
+        // put it in the sponge
+        self.sponge_absorb(&self.commitment.root());
     }
     pub fn update_folding_randomness(&mut self) {
         self.folding_randomness = self.sponge_squeeze();

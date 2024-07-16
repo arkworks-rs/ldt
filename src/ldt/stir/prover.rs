@@ -60,23 +60,23 @@ where
     }
 
     fn prove(&self, witness: &W) -> Self::Proof {
-        // TODO: (z-tech) what does this check mean?
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        // Step 1: get initial round state
+        // Step 1: initial round state from witness
         let mut round_state = STIRRoundState::new(
             witness.domain(),
             witness.coeff(),
             witness.commitment(),
             witness.committed_values(),
+            self.config.merkle_leaf_hash_param.clone(),
+            self.config.merkle_two_to_one_param.clone(),
             self.config.sponge_config.clone(),
         );
 
         // Step 2: compute inner rounds
         let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
         for _round in 0..self.config.num_rounds {
-            let new_round_state =
-                Self::compute_inner_round(&self.config, round_state);
+            let new_round_state = Self::compute_inner_round(&self.config, round_state);
             round_state = new_round_state;
             round_proofs.push(round_state.round_proof());
         }
@@ -153,15 +153,7 @@ where
         round_state.fold(config.folding_factor);
 
         // Step 2: Generate commitment on the folded stuff
-        let round_commitment = MerkleTree::<W::MerkleConfig>::new(
-            &config.merkle_leaf_hash_param,
-            &config.merkle_two_to_one_param,
-            &round_state.committed_values,
-        )
-        .unwrap();
-        // put it in the sponge
-        let round_commitment_digest = round_commitment.root();
-        round_state.sponge_absorb(&round_commitment_digest);
+        round_state.update_commitment();
 
         // Step 3: Out of domain samples
         let (out_of_domain_samples, out_of_domain_evaluations) =
@@ -214,14 +206,16 @@ where
 
         // Step 8: Return
         let new_round_state = STIRRoundState {
-            answer_coeff: answer_coeff.clone(),
+            answer_coeff,
             domain: round_state.domain,
-            challenge_answers: challenge_answers.clone(),
-            challenge_values: challenge_values.clone(),
+            challenge_answers,
+            challenge_values,
             coeff: witness_coeff, // witness_coeff
-            commitment: round_commitment.clone(),
+            commitment: round_state.commitment,
             committed_values: round_state.committed_values,
             folding_randomness: round_state.folding_randomness,
+            merkle_leaf_hash_param: round_state.merkle_leaf_hash_param,
+            merkle_two_to_one_param: round_state.merkle_two_to_one_param,
             out_of_domain_evaluations: out_of_domain_evaluations.clone(),
             proof_of_work_nonce: proof_of_work_nonce.clone(),
             round_num: round_state.round_num + 1,
