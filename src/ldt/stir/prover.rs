@@ -64,7 +64,6 @@ where
         // Step 1: initial round state from witness
         let mut round_state = STIRRoundState::new(
             witness.domain(),
-            witness.coeff(),
             witness.commitment(),
             witness.committed_values(),
             self.config.folding_factor,
@@ -74,6 +73,7 @@ where
             self.config.proof_of_work_bits.clone(),
             self.config.repetitions.clone(),
             self.config.sponge_config.clone(),
+            witness.coeff(),
         );
 
         // Step 2: compute inner rounds
@@ -107,7 +107,7 @@ where
     ) -> STIRRoundProof<F, W::MerkleConfig> {
         // Step 1: Perfom fold operation
         let coeff = poly_utils::folding::poly_fold(
-            &round_state.coeff,
+            &round_state.witness_coeff,
             config.folding_factor,
             round_state.folding_randomness,
         );
@@ -177,7 +177,7 @@ where
         let (answer_coeff, shake_coeff, witness_coeff) = Self::compute_polynomials(
             round_state.quotient_set.clone(),
             round_state.quotient_answers.clone(),
-            round_state.coeff,
+            round_state.witness_coeff,
             round_state.proximity_generator_randomness.clone(),
         );
 
@@ -188,7 +188,6 @@ where
             challenge_answers: round_state.challenge_answers,
             challenge_values: round_state.challenge_values,
             challenges: round_state.challenges,
-            coeff: witness_coeff, // witness_coeff
             commitment: round_state.commitment,
             committed_values: round_state.committed_values,
             folding_factor: round_state.folding_factor,
@@ -210,6 +209,7 @@ where
             round_num: round_state.round_num + 1,
             shake_coeff: shake_coeff.clone(),
             sponge: round_state.sponge,
+            witness_coeff,
         }
     }
     fn challenges(

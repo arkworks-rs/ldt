@@ -21,7 +21,6 @@ where
 {
     pub answer_coeff: DensePolynomial<F>,
     pub domain: Domain<F>,
-    pub coeff: DensePolynomial<F>,
     pub challenge_answers: Vec<Path<M>>,
     pub challenge_values: Vec<Vec<F>>,
     pub challenges: Vec<usize>,
@@ -46,6 +45,7 @@ where
     pub round_num: usize,
     pub shake_coeff: DensePolynomial<F>,
     pub sponge: S,
+    pub witness_coeff: DensePolynomial<F>,
 }
 
 impl<F, M, S> STIRRoundState<F, M, S>
@@ -57,7 +57,6 @@ where
 {
     pub fn new(
         domain: Domain<F>,
-        coeff: DensePolynomial<F>,
         commitment: MerkleTree<M>,
         committed_values: Vec<Vec<F>>,
         folding_factor: usize,
@@ -67,6 +66,7 @@ where
         num_proof_of_work_bits: Vec<usize>,
         num_repetitions: Vec<usize>,
         sponge_config: S::Config,
+        witness_coeff: DensePolynomial<F>,
     ) -> Self {
         let mut sponge = S::new(&sponge_config);
         sponge.absorb(&commitment.root());
@@ -76,7 +76,6 @@ where
             challenge_answers: vec![],
             challenge_values: vec![],
             challenges: vec![],
-            coeff,
             commitment,
             committed_values: committed_values.clone(),
             folding_factor,
@@ -103,6 +102,7 @@ where
             round_num: 0,
             shake_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             sponge,
+            witness_coeff,
         }
     }
     // pub fn coeff(&self) -> DensePolynomial<F> {
@@ -120,7 +120,7 @@ where
     pub fn fold(&mut self, folding_factor: usize) {
         self.last_round_domain_size = self.domain.size();
         let folded_coeff = poly_utils::folding::poly_fold(
-            &self.coeff.clone(),
+            &self.witness_coeff.clone(),
             folding_factor,
             self.folding_randomness,
         );
@@ -129,7 +129,7 @@ where
             .evaluate_over_domain_by_ref(scaled_domain.backing_domain)
             .evals;
         let folded_committed_values = stack_evaluations(evals, folding_factor);
-        self.coeff = folded_coeff;
+        self.witness_coeff = folded_coeff;
         self.domain = scaled_domain;
         self.last_round_committed_values = self.committed_values.clone();
         self.committed_values = folded_committed_values;
@@ -208,7 +208,7 @@ where
         self.out_of_domain_evaluations = self
             .out_of_domain_samples
             .iter()
-            .map(|point| self.coeff.evaluate(point))
+            .map(|point| self.witness_coeff.evaluate(point))
             .collect();
         self.sponge_absorb(&self.out_of_domain_evaluations.clone());
     }
@@ -236,7 +236,7 @@ where
         self.quotient_answers = self
             .quotient_set
             .iter()
-            .map(|x| self.coeff.evaluate(x))
+            .map(|x| self.witness_coeff.evaluate(x))
             .collect();
     }
 }
