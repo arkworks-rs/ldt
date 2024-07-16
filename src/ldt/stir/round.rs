@@ -13,7 +13,7 @@ use crate::{
 
 use super::proof::STIRRoundProof;
 
-pub struct STIRRoundState<F, M, S>
+pub struct STIRRound<F, M, S>
 where
     F: FftField,
     M: MerkleConfig,
@@ -49,7 +49,7 @@ where
     witness_coeff: DensePolynomial<F>,
 }
 
-impl<F, M, S> STIRRoundState<F, M, S>
+impl<F, M, S> STIRRound<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
@@ -129,42 +129,6 @@ where
     }
     fn is_final_round(&self) -> bool {
         self.round_num == self.num_rounds
-    }
-    fn next_round(&mut self) {
-        // Step 1: Perform fold/scale operation
-        self.fold();
-
-        if !self.is_final_round() {
-            // Step 2: Generate commitment on the folded stuff
-            self.update_commitment();
-
-            // Step 3: Out of domain samples
-            self.update_out_of_domain_samples();
-
-            // Step 4: Squeeze some randomness
-            self.update_proximity_generator_randomness();
-            self.update_folding_randomness();
-        }
-
-        // Step 5: Generate challenges and answers
-        self.update_challenges();
-
-        // Step 6: Proof of work
-        self.update_proof_of_work();
-
-        if !self.is_final_round() {
-            // Step 7: Squeeze more randomness (used by only verifier)
-            let _shake_randomness: F = self.sponge_squeeze();
-
-            // Step 6: Generate quotient set and answers
-            self.update_quotient_answers();
-
-            // Step 7: Compute coeffs
-            self.update_coeffs();
-
-            // Step 8: Increment
-            self.update_round_num();
-        }
     }
     pub fn proof(&self) -> STIRRoundProof<F, M> {
         STIRRoundProof {
@@ -296,7 +260,7 @@ where
     }
 }
 
-impl<F, M, S> Iterator for STIRRoundState<F, M, S>
+impl<F, M, S> Iterator for STIRRound<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
@@ -307,7 +271,40 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.round_num < self.num_rounds {
-            self.next_round();
+            // Step 1: Perform fold/scale operation
+            self.fold();
+
+            if !self.is_final_round() {
+                // Step 2: Generate commitment on the folded stuff
+                self.update_commitment();
+
+                // Step 3: Out of domain samples
+                self.update_out_of_domain_samples();
+
+                // Step 4: Squeeze some randomness
+                self.update_proximity_generator_randomness();
+                self.update_folding_randomness();
+            }
+
+            // Step 5: Generate challenges and answers
+            self.update_challenges();
+
+            // Step 6: Proof of work
+            self.update_proof_of_work();
+
+            if !self.is_final_round() {
+                // Step 7: Squeeze more randomness (used by only verifier)
+                let _shake_randomness: F = self.sponge_squeeze();
+
+                // Step 6: Generate quotient set and answers
+                self.update_quotient_answers();
+
+                // Step 7: Compute coeffs
+                self.update_coeffs();
+
+                // Step 8: Increment
+                self.update_round_num();
+            }
             Some(self.clone())
         } else {
             None
@@ -315,7 +312,7 @@ where
     }
 }
 
-impl<F, M, S> Clone for STIRRoundState<F, M, S>
+impl<F, M, S> Clone for STIRRound<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
@@ -323,7 +320,7 @@ where
     S: CryptographicSponge,
 {
     fn clone(&self) -> Self {
-        STIRRoundState {
+        STIRRound {
             answer_coeff: self.answer_coeff.clone(),
             domain: self.domain.clone(),
             challenge_answers: self.challenge_answers.clone(),

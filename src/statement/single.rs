@@ -1,13 +1,13 @@
 use ark_crypto_primitives::merkle_tree::Config as MerkleConfig;
 
-pub struct SingleClaim<M>
+pub struct SingleStatement<M>
 where
     M: MerkleConfig,
 {
     commitment_digest: M::InnerDigest,
 }
 
-impl<M> SingleClaim<M>
+impl<M> SingleStatement<M>
 where
     M: MerkleConfig,
 {

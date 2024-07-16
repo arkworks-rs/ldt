@@ -7,7 +7,6 @@ use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2
 use ark_std::marker::PhantomData;
 
 use crate::{
-    claim::single::SingleClaim,
     domain::Domain,
     ldt::{
         stir::{
@@ -17,6 +16,7 @@ use crate::{
         Verifier,
     },
     poly_utils,
+    statement::single::SingleStatement,
     utils::{dedup, proof_of_work_verify, squeeze_integer},
     witness::Witness,
 };
@@ -104,7 +104,7 @@ where
     W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
 {
-    type Claim = SingleClaim<M>;
+    type Claim = SingleStatement<M>;
     type VerifierConfig = STIRConfig<M, S>;
     type Proof = STIRProof<F, M>;
 

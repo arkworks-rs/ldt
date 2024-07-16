@@ -6,11 +6,11 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    claim::single::SingleClaim,
     ldt::{
         direct::{config::DirectConfig, proof::DirectProof},
         Verifier,
     },
+    statement::single::SingleStatement,
     utils::squeeze_integer,
     witness::Witness,
 };
@@ -37,7 +37,7 @@ where
     W: Witness<F, M>,
     W::ChallengeAnswers: Clone,
 {
-    type Claim = SingleClaim<M>;
+    type Claim = SingleStatement<M>;
     type VerifierConfig = DirectConfig<M, S>;
     type Proof = DirectProof<F, M, S>;
 

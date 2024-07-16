@@ -9,13 +9,13 @@ use ark_poly::{EvaluationDomain, Polynomial};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    claim::single::SingleClaim,
     domain::Domain,
     ldt::{
         fri::{config::FRIConfig, proof::FRIProof},
         Verifier,
     },
     poly_utils,
+    statement::single::SingleStatement,
     utils::{dedup, proof_of_work_verify, squeeze_integer},
     witness::Witness,
 };
@@ -40,7 +40,7 @@ where
     S: CryptographicSponge,
     W: Witness<F, M>,
 {
-    type Claim = SingleClaim<M>;
+    type Claim = SingleStatement<M>;
     type VerifierConfig = FRIConfig<M, S>;
     type Proof = FRIProof<F, M>;
     fn new(verifier_config: FRIConfig<M, S>) -> Self {

@@ -2,7 +2,7 @@ pub mod config;
 pub mod ldt;
 pub mod proof;
 pub mod prover;
-pub mod state;
+pub mod round;
 pub mod verifier;
 
 #[cfg(test)]
