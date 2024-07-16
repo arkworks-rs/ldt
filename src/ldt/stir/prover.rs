@@ -75,10 +75,10 @@ where
         // Step 2: compute inner rounds
         let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
         for _round in 0..self.config.num_rounds {
-            let (new_round_state, round_proof) =
+            let new_round_state =
                 Self::compute_inner_round(&self.config, round_state);
             round_state = new_round_state;
-            round_proofs.push(round_proof);
+            round_proofs.push(round_state.round_proof());
         }
 
         // Step 3: compute final round (v similar but fewer things)
@@ -144,10 +144,7 @@ where
     fn compute_inner_round(
         config: &STIRConfig<W::MerkleConfig, S>,
         mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
-    ) -> (
-        STIRRoundState<F, W::MerkleConfig, S>,
-        STIRRoundProof<F, W::MerkleConfig>,
-    ) {
+    ) -> STIRRoundState<F, M, S> {
         let last_round_domain = round_state.domain.clone();
         let last_round_commitment = round_state.commitment.clone();
         let last_round_committed_values = round_state.committed_values.clone();
@@ -219,7 +216,8 @@ where
         let new_round_state = STIRRoundState {
             answer_coeff: answer_coeff.clone(),
             domain: round_state.domain,
-            challenge_answers: challenge_answers,
+            challenge_answers: challenge_answers.clone(),
+            challenge_values: challenge_values.clone(),
             coeff: witness_coeff, // witness_coeff
             commitment: round_commitment.clone(),
             committed_values: round_state.committed_values,
@@ -230,20 +228,7 @@ where
             shake_coeff: shake_coeff.clone(),
             sponge: round_state.sponge,
         };
-        let new_round_proof = STIRRoundProof {
-            commitment_digest: new_round_state.commitment.root(),
-            out_of_domain_evaluations: new_round_state.out_of_domain_evaluations.clone(),
-            challenge_values,
-            challenge_answers: new_round_state.challenge_answers.clone(),
-            coeff: answer_coeff,
-            is_final_round: false,
-            shake_coeff: new_round_state.shake_coeff.clone(),
-            proof_of_work_nonce: new_round_state.proof_of_work_nonce,
-        };
-        (
-            new_round_state,
-            new_round_proof,
-        )
+        new_round_state
     }
     fn challenges(
         round_state: &mut STIRRoundState<F, M, S>,

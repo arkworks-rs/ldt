@@ -7,6 +7,8 @@ use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 
 use crate::{domain::Domain, poly_utils, utils::stack_evaluations};
 
+use super::proof::STIRRoundProof;
+
 pub struct STIRRoundState<F, M, S>
 where
     F: FftField,
@@ -17,6 +19,7 @@ where
     pub domain: Domain<F>,
     pub coeff: DensePolynomial<F>,
     pub challenge_answers: Vec<Path<M>>,
+    pub challenge_values: Vec<Vec<F>>,
     pub commitment: MerkleTree<M>,
     pub committed_values: Vec<Vec<F>>,
     pub folding_randomness: F,
@@ -47,6 +50,7 @@ where
             answer_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             domain,
             challenge_answers: vec![],
+            challenge_values: vec![],
             coeff,
             commitment,
             committed_values,
@@ -96,6 +100,18 @@ where
     // }
     pub fn round_num(&self) -> usize {
         self.round_num
+    }
+    pub fn round_proof(&self) -> STIRRoundProof<F, M> {
+        STIRRoundProof {
+            commitment_digest: self.commitment.root(),
+            out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
+            challenge_values: self.challenge_values.clone(),
+            challenge_answers: self.challenge_answers.clone(),
+            coeff: self.answer_coeff.clone(),
+            is_final_round: false,
+            shake_coeff: self.shake_coeff.clone(),
+            proof_of_work_nonce: self.proof_of_work_nonce,
+        }
     }
     pub fn sponge_absorb(&mut self, element: impl Absorb) {
         self.sponge.absorb(&element);
