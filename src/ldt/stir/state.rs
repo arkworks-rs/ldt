@@ -5,7 +5,7 @@ use ark_crypto_primitives::{
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, Polynomial};
 
-use crate::{domain::Domain, poly_utils, utils::stack_evaluations};
+use crate::{domain::Domain, poly_utils, utils::{dedup, squeeze_integer, stack_evaluations}};
 
 use super::proof::STIRRoundProof;
 
@@ -20,8 +20,10 @@ where
     pub coeff: DensePolynomial<F>,
     pub challenge_answers: Vec<Path<M>>,
     pub challenge_values: Vec<Vec<F>>,
+    pub challenges: Vec<usize>,
     pub commitment: MerkleTree<M>,
     pub committed_values: Vec<Vec<F>>,
+    pub folding_factor: usize,
     pub folding_randomness: F,
     pub last_round_commitment: MerkleTree<M>,
     pub last_round_committed_values: Vec<Vec<F>>,
@@ -29,6 +31,7 @@ where
     pub merkle_leaf_hash_param: LeafParam<M>,
     pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub num_out_of_domain_samples: usize,
+    pub num_repetitions: Vec<usize>,
     pub out_of_domain_samples: Vec<F>,
     pub out_of_domain_evaluations: Vec<F>,
     pub proof_of_work_nonce: Option<usize>,
@@ -49,9 +52,11 @@ where
         coeff: DensePolynomial<F>,
         commitment: MerkleTree<M>,
         committed_values: Vec<Vec<F>>,
+        folding_factor: usize,
         merkle_leaf_hash_param: LeafParam<M>,
         merkle_two_to_one_param: TwoToOneParam<M>,
         num_out_of_domain_samples: usize,
+        num_repetitions: Vec<usize>,
         sponge_config: S::Config,
     ) -> Self {
         let mut sponge = S::new(&sponge_config);
@@ -61,9 +66,11 @@ where
             domain: domain.clone(),
             challenge_answers: vec![],
             challenge_values: vec![],
+            challenges: vec![],
             coeff,
             commitment,
             committed_values: committed_values.clone(),
+            folding_factor,
             folding_randomness: sponge.squeeze_field_elements(1)[0],
             last_round_domain_size: domain.size(),
             last_round_commitment: MerkleTree::<M>::new(
@@ -76,6 +83,7 @@ where
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             num_out_of_domain_samples,
+            num_repetitions,
             out_of_domain_samples: vec![],
             out_of_domain_evaluations: vec![],
             proof_of_work_nonce: None,
@@ -97,6 +105,7 @@ where
     //     self.domain.clone()
     // }
     pub fn fold(&mut self, folding_factor: usize) {
+        self.last_round_domain_size = self.domain.size();
         let folded_coeff = poly_utils::folding::poly_fold(
             &self.coeff.clone(),
             folding_factor,
@@ -109,6 +118,7 @@ where
         let folded_committed_values = stack_evaluations(evals, folding_factor);
         self.coeff = folded_coeff;
         self.domain = scaled_domain;
+        self.last_round_committed_values = self.committed_values.clone();
         self.committed_values = folded_committed_values;
     }
     // pub fn folding_randomness(&self) -> F {
@@ -144,7 +154,22 @@ where
     pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
         self.sponge.squeeze_field_elements(num_elements)
     }
+    pub fn update_challenges(&mut self) {
+        self.challenges = dedup(
+            (0..self.num_repetitions[self.round_num]).map(|_| squeeze_integer(&mut self.sponge, self.last_round_domain_size / self.folding_factor)),
+        );
+        self.challenge_values = self.challenges
+            .iter()
+            .map(|index| self.last_round_committed_values[*index].clone())
+            .collect();
+        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(self.challenge_values.len());
+        for challenge in &self.challenges {
+            challenge_answers.push(self.last_round_commitment.generate_proof(*challenge).unwrap());
+        }
+        self.challenge_answers = challenge_answers;
+    }
     pub fn update_commitment(&mut self) {
+        self.last_round_commitment = self.commitment.clone();
         self.commitment = MerkleTree::<M>::new(
             &self.merkle_leaf_hash_param,
             &self.merkle_two_to_one_param,

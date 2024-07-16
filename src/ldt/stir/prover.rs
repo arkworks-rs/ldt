@@ -68,9 +68,11 @@ where
             witness.coeff(),
             witness.commitment(),
             witness.committed_values(),
+            self.config.folding_factor,
             self.config.merkle_leaf_hash_param.clone(),
             self.config.merkle_two_to_one_param.clone(),
             self.config.num_out_of_domain_samples,
+            self.config.repetitions.clone(),
             self.config.sponge_config.clone(),
         );
 
@@ -163,18 +165,7 @@ where
         round_state.update_folding_randomness();
 
         // Step 5: Generate challenges and answers
-        let tmp_round_num = round_state.round_num;
-        let scaling_factor = round_state.last_round_domain_size / config.folding_factor;
-        let challenges = Self::challenges(
-            &mut round_state,
-            scaling_factor,
-            config.repetitions[tmp_round_num],
-        );
-        let (challenge_values, challenge_answers) = Self::challenge_answers(
-            challenges.clone(),
-            last_round_commitment.clone(),
-            last_round_committed_values.clone(),
-        );
+        round_state.update_challenges();
 
         // Step 6: Proof of work
         let proof_of_work_nonce = proof_of_work(
@@ -189,7 +180,7 @@ where
         let (quotient_set, quotient_answers) = Self::get_quotient_set_and_answers(
             round_state.domain.clone(),
             round_state.coeff.clone(),
-            challenges,
+            round_state.challenges.clone(),
             round_state.out_of_domain_samples.clone(),
             config.folding_factor,
         );
@@ -206,11 +197,13 @@ where
         let new_round_state = STIRRoundState {
             answer_coeff,
             domain: round_state.domain.clone(),
-            challenge_answers,
-            challenge_values,
+            challenge_answers: round_state.challenge_answers,
+            challenge_values: round_state.challenge_values,
+            challenges: round_state.challenges,
             coeff: witness_coeff, // witness_coeff
             commitment: round_state.commitment,
             committed_values: round_state.committed_values,
+            folding_factor: round_state.folding_factor,
             folding_randomness: round_state.folding_randomness,
             last_round_domain_size: round_state.domain.size(),
             last_round_commitment,
@@ -218,6 +211,7 @@ where
             merkle_leaf_hash_param: round_state.merkle_leaf_hash_param,
             merkle_two_to_one_param: round_state.merkle_two_to_one_param,
             num_out_of_domain_samples: config.num_out_of_domain_samples,
+            num_repetitions: round_state.num_repetitions,
             out_of_domain_samples: round_state.out_of_domain_samples.clone(),
             out_of_domain_evaluations: round_state.out_of_domain_evaluations.clone(),
             proof_of_work_nonce: proof_of_work_nonce.clone(),
