@@ -212,42 +212,30 @@ where
         self.sponge.squeeze_field_elements(num_elements)
     }
     pub fn update_challenges(&mut self) {
+        let (domain_size, committed_values, commitment) = match self.is_final_round() {
+            true => (
+                self.domain.size(),
+                &self.committed_values,
+                &self.commitment,
+            ),
+            false => (
+                self.last_round_domain_size,
+                &self.last_round_committed_values,
+                &self.last_round_commitment,
+            ),
+        };
         self.challenges = dedup((0..self.num_repetitions[self.round_num]).map(|_| {
-            squeeze_integer(
-                &mut self.sponge,
-                self.last_round_domain_size / self.folding_factor,
-            )
+            squeeze_integer(&mut self.sponge, domain_size / self.folding_factor)
         }));
         self.challenge_values = self
             .challenges
             .iter()
-            .map(|index| self.last_round_committed_values[*index].clone())
+            .map(|index| committed_values[*index].clone())
             .collect();
-        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(self.challenge_values.len());
+        self.challenge_answers = Vec::with_capacity(self.challenge_values.len());
         for challenge in &self.challenges {
-            challenge_answers.push(
-                self.last_round_commitment
-                    .generate_proof(*challenge)
-                    .unwrap(),
-            );
+            self.challenge_answers.push(commitment.generate_proof(*challenge).unwrap());
         }
-        self.challenge_answers = challenge_answers;
-    }
-    pub fn update_challenges_final_round(&mut self) {
-        self.challenges =
-            dedup((0..self.num_repetitions[self.round_num]).map(|_| {
-                squeeze_integer(&mut self.sponge, self.domain.size() / self.folding_factor)
-            }));
-        self.challenge_values = self
-            .challenges
-            .iter()
-            .map(|index| self.committed_values[*index].clone())
-            .collect();
-        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(self.challenge_values.len());
-        for challenge in &self.challenges {
-            challenge_answers.push(self.commitment.generate_proof(*challenge).unwrap());
-        }
-        self.challenge_answers = challenge_answers;
     }
     pub fn update_coeffs(&mut self) {
         // answer_coeff

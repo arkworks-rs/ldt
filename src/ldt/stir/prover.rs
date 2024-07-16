@@ -117,7 +117,7 @@ where
         );
 
         // Step 2: Generate challenges and answers
-        round_state.update_challenges_final_round();
+        round_state.update_challenges();
 
         // Step 3: Proof of work
         let proof_of_work_nonce = proof_of_work(
