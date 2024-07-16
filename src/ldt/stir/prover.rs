@@ -16,7 +16,6 @@ use crate::{
         Prover,
     },
     poly_utils,
-    utils::proof_of_work,
     witness::Witness,
 };
 
@@ -110,31 +109,15 @@ where
         mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
     ) -> STIRRoundProof<F, W::MerkleConfig> {
         // Step 1: Perfom fold operation
-        let coeff = poly_utils::folding::poly_fold(
-            &round_state.witness_coeff,
-            config.folding_factor,
-            round_state.folding_randomness,
-        );
+        round_state.fold();
 
         // Step 2: Generate challenges and answers
         round_state.update_challenges();
 
         // Step 3: Proof of work
-        let proof_of_work_nonce = proof_of_work(
-            &mut round_state.sponge,
-            config.proof_of_work_bits[config.num_rounds],
-        );
+        round_state.update_proof_of_work();
 
         // Step 4: Return
-        STIRRoundProof::new(
-            coeff,
-            round_state.challenge_answers,
-            round_state.committed_values,
-            true,
-            vec![],
-            round_state.commitment.root(),
-            proof_of_work_nonce,
-            DensePolynomial::<F>::from_coefficients_vec(Vec::new()),
-        )
+        round_state.round_proof()
     }
 }

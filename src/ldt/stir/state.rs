@@ -120,23 +120,24 @@ where
     // pub fn domain(&self) -> Domain<F> {
     //     self.domain.clone()
     // }
-    pub fn final_round(&mut self) {}
     pub fn fold(&mut self) {
-        self.last_round_domain_size = self.domain.size();
         let folded_coeff = poly_utils::folding::poly_fold(
             &self.witness_coeff.clone(),
             self.folding_factor,
             self.folding_randomness,
         );
-        let scaled_domain = self.domain.clone().scale_offset(2);
-        let evals = folded_coeff
-            .evaluate_over_domain_by_ref(scaled_domain.backing_domain)
-            .evals;
-        let folded_committed_values = stack_evaluations(evals, self.folding_factor);
-        self.witness_coeff = folded_coeff;
-        self.domain = scaled_domain;
-        self.last_round_committed_values = self.committed_values.clone();
-        self.committed_values = folded_committed_values;
+        if !self.is_final_round() {
+            self.last_round_domain_size = self.domain.size();
+            let scaled_domain = self.domain.clone().scale_offset(2);
+            let evals = folded_coeff
+                .evaluate_over_domain_by_ref(scaled_domain.backing_domain)
+                .evals;
+            let folded_committed_values = stack_evaluations(evals, self.folding_factor);
+            self.witness_coeff = folded_coeff;
+            self.domain = scaled_domain;
+            self.last_round_committed_values = self.committed_values.clone();
+            self.committed_values = folded_committed_values;
+        }
     }
     // pub fn folding_randomness(&self) -> F {
     //     self.folding_randomness
@@ -151,23 +152,20 @@ where
         self.round_num == self.num_rounds
     }
     pub fn next(&mut self) {
-        // if self.is_final_round() {
-        //     self.final_round();
-        //     return;
-        // }
-
         // Step 1: Perform fold/scale operation
         self.fold();
 
-        // Step 2: Generate commitment on the folded stuff
-        self.update_commitment();
+        if !self.is_final_round() {
+            // Step 2: Generate commitment on the folded stuff
+            self.update_commitment();
 
-        // Step 3: Out of domain samples
-        self.update_out_of_domain_samples();
+            // Step 3: Out of domain samples
+            self.update_out_of_domain_samples();
 
-        // Step 4: Squeeze some randomness
-        self.update_proximity_generator_randomness();
-        self.update_folding_randomness();
+            // Step 4: Squeeze some randomness
+            self.update_proximity_generator_randomness();
+            self.update_folding_randomness();
+        }
 
         // Step 5: Generate challenges and answers
         self.update_challenges();
@@ -175,14 +173,16 @@ where
         // Step 6: Proof of work
         self.update_proof_of_work();
 
-        // Step 7: Squeeze more randomness (used by only verifier)
-        let _shake_randomness: F = self.sponge_squeeze();
+        if !self.is_final_round() {
+            // Step 7: Squeeze more randomness (used by only verifier)
+            let _shake_randomness: F = self.sponge_squeeze();
 
-        // Step 6: Generate quotient set and answers
-        self.update_quotient_answers();
+            // Step 6: Generate quotient set and answers
+            self.update_quotient_answers();
 
-        // Step 7: Compute coeffs
-        self.update_coeffs();
+            // Step 7: Compute coeffs
+            self.update_coeffs();
+        }
 
         // Step 8: Increment
         self.update_round_num();
@@ -197,7 +197,7 @@ where
             challenge_values: self.challenge_values.clone(),
             challenge_answers: self.challenge_answers.clone(),
             coeff: self.answer_coeff.clone(),
-            is_final_round: false,
+            is_final_round: self.is_final_round(),
             shake_coeff: self.shake_coeff.clone(),
             proof_of_work_nonce: self.proof_of_work_nonce,
         }
@@ -238,13 +238,14 @@ where
         }
     }
     pub fn update_coeffs(&mut self) {
-        // answer_coeff
+        // zip set and answers into Vec<(F, F)>
         let zipped: Vec<(F, F)> = self
             .quotient_set
             .clone()
             .into_iter()
             .zip(self.quotient_answers.clone().into_iter())
             .collect();
+        // answer_coeff
         self.answer_coeff = poly_utils::interpolation::naive_interpolation(&zipped);
         // shake_coeff
         let mut shake_coeff = DensePolynomial::from_coefficients_vec(vec![]);
