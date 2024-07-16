@@ -183,7 +183,7 @@ where
             last_round_domain.size() / config.folding_factor,
             config.repetitions[tmp_round_num],
         );
-        let (committed_values, challenge_answers) = Self::challenge_answers(
+        let (challenge_values, challenge_answers) = Self::challenge_answers(
             challenges.clone(),
             last_round_commitment,
             last_round_committed_values,
@@ -233,7 +233,7 @@ where
         let new_round_proof = STIRRoundProof {
             commitment_digest: new_round_state.commitment.root(),
             out_of_domain_evaluations: new_round_state.out_of_domain_evaluations.clone(),
-            committed_values,
+            challenge_values,
             challenge_answers: new_round_state.challenge_answers.clone(),
             coeff: answer_coeff,
             is_final_round: false,

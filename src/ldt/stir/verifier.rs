@@ -126,7 +126,7 @@ where
         let mut current_root = claim.commitment_digest();
         for round_proof in &proof.round_proofs {
             for (leaf_value, inclusion_proof) in round_proof
-                .committed_values
+                .challenge_values
                 .iter()
                 .zip(round_proof.challenge_answers.iter())
             {
@@ -192,7 +192,7 @@ where
 
         // First, we want to query back the last oracle at this point, which is, again, just a
         // lookup
-        let oracle_answers = proof.round_proofs.last().unwrap().committed_values.clone();
+        let oracle_answers = proof.round_proofs.last().unwrap().challenge_values.clone();
 
         let folded_answers = self.compute_folded_evaluations(
             &verification_state,
@@ -460,7 +460,7 @@ where
         // At the indexes B_i for i in stir_randomness_indexes
         // Since we previously verified the Merkle paths, this is easy
         // TODO: We should probably check the indexes
-        let oracle_answers = round_proof.committed_values.clone();
+        let oracle_answers = round_proof.challenge_values.clone();
 
         // Now, for each of the selected random points, we need to compute the folding of the
         // previous oracle

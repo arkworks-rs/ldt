@@ -5,7 +5,7 @@ use ark_poly::univariate::DensePolynomial;
 pub struct STIRRoundProof<F: Field, M: MerkleConfig> {
     pub coeff: DensePolynomial<F>,
     pub challenge_answers: Vec<Path<M>>,
-    pub committed_values: Vec<Vec<F>>,
+    pub challenge_values: Vec<Vec<F>>,
     pub is_final_round: bool,
     pub out_of_domain_evaluations: Vec<F>, // Note: empty when is_final_round = true
     pub commitment_digest: M::InnerDigest,
@@ -17,7 +17,7 @@ impl<F: Field, M: MerkleConfig> STIRRoundProof<F, M> {
     pub fn new(
         coeff: DensePolynomial<F>,
         challenge_answers: Vec<Path<M>>,
-        committed_values: Vec<Vec<F>>,
+        challenge_values: Vec<Vec<F>>,
         is_final_round: bool,
         out_of_domain_evaluations: Vec<F>,
         commitment_digest: M::InnerDigest,
@@ -27,7 +27,7 @@ impl<F: Field, M: MerkleConfig> STIRRoundProof<F, M> {
         STIRRoundProof {
             coeff,
             challenge_answers,
-            committed_values,
+            challenge_values,
             is_final_round,
             out_of_domain_evaluations,
             commitment_digest,
@@ -42,7 +42,7 @@ impl<F: Field, M: MerkleConfig> Clone for STIRRoundProof<F, M> {
         STIRRoundProof {
             coeff: self.coeff.clone(),
             challenge_answers: self.challenge_answers.clone(),
-            committed_values: self.committed_values.clone(),
+            challenge_values: self.challenge_values.clone(),
             is_final_round: self.is_final_round,
             out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
             commitment_digest: self.commitment_digest.clone(),
