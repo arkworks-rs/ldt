@@ -19,34 +19,34 @@ where
     M: MerkleConfig,
     S: CryptographicSponge,
 {
-    pub answer_coeff: DensePolynomial<F>,
-    pub domain: Domain<F>,
-    pub challenge_answers: Vec<Path<M>>,
-    pub challenge_values: Vec<Vec<F>>,
-    pub challenges: Vec<usize>,
-    pub commitment: MerkleTree<M>,
-    pub committed_values: Vec<Vec<F>>,
-    pub folding_factor: usize,
-    pub folding_randomness: F,
-    pub last_round_commitment: MerkleTree<M>,
-    pub last_round_committed_values: Vec<Vec<F>>,
-    pub last_round_domain_size: usize,
-    pub merkle_leaf_hash_param: LeafParam<M>,
-    pub merkle_two_to_one_param: TwoToOneParam<M>,
-    pub num_out_of_domain_samples: usize,
-    pub num_proof_of_work_bits: Vec<usize>,
-    pub num_repetitions: Vec<usize>,
-    pub num_rounds: usize,
-    pub out_of_domain_samples: Vec<F>,
-    pub out_of_domain_evaluations: Vec<F>,
-    pub proof_of_work_nonce: Option<usize>,
-    pub proximity_generator_randomness: F,
-    pub quotient_answers: Vec<F>,
-    pub quotient_set: Vec<F>,
-    pub round_num: usize,
-    pub shake_coeff: DensePolynomial<F>,
-    pub sponge: S,
-    pub witness_coeff: DensePolynomial<F>,
+    answer_coeff: DensePolynomial<F>,
+    domain: Domain<F>,
+    challenge_answers: Vec<Path<M>>,
+    challenge_values: Vec<Vec<F>>,
+    challenges: Vec<usize>,
+    commitment: MerkleTree<M>,
+    committed_values: Vec<Vec<F>>,
+    folding_factor: usize,
+    folding_randomness: F,
+    last_round_commitment: MerkleTree<M>,
+    last_round_committed_values: Vec<Vec<F>>,
+    last_round_domain_size: usize,
+    merkle_leaf_hash_param: LeafParam<M>,
+    merkle_two_to_one_param: TwoToOneParam<M>,
+    num_out_of_domain_samples: usize,
+    num_proof_of_work_bits: Vec<usize>,
+    num_repetitions: Vec<usize>,
+    num_rounds: usize,
+    out_of_domain_samples: Vec<F>,
+    out_of_domain_evaluations: Vec<F>,
+    proof_of_work_nonce: Option<usize>,
+    proximity_generator_randomness: F,
+    quotient_answers: Vec<F>,
+    quotient_set: Vec<F>,
+    round_num: usize,
+    shake_coeff: DensePolynomial<F>,
+    sponge: S,
+    witness_coeff: DensePolynomial<F>,
 }
 
 impl<F, M, S> STIRRoundState<F, M, S>
@@ -108,19 +108,7 @@ where
             witness_coeff,
         }
     }
-    // pub fn coeff(&self) -> DensePolynomial<F> {
-    //     self.coeff.clone()
-    // }
-    // pub fn commitment(&self) -> MerkleTree<M> {
-    //     self.commitment.clone()
-    // }
-    // pub fn committed_values(&self) -> Vec<Vec<F>> {
-    //     self.committed_values.clone()
-    // }
-    // pub fn domain(&self) -> Domain<F> {
-    //     self.domain.clone()
-    // }
-    pub fn fold(&mut self) {
+    fn fold(&mut self) {
         let folded_coeff = poly_utils::folding::poly_fold(
             &self.witness_coeff.clone(),
             self.folding_factor,
@@ -139,19 +127,10 @@ where
             self.committed_values = folded_committed_values;
         }
     }
-    // pub fn folding_randomness(&self) -> F {
-    //     self.folding_randomness
-    // }
-    // pub fn round_num(&self) -> usize {
-    //     self.round_num
-    // }
-    // pub fn sponge(&self) -> S {
-    //     self.sponge
-    // }
-    pub fn is_final_round(&self) -> bool {
+    fn is_final_round(&self) -> bool {
         self.round_num == self.num_rounds
     }
-    pub fn next(&mut self) {
+    fn next_round(&mut self) {
         // Step 1: Perform fold/scale operation
         self.fold();
 
@@ -187,10 +166,7 @@ where
             self.update_round_num();
         }
     }
-    pub fn round_num(&self) -> usize {
-        self.round_num
-    }
-    pub fn round_proof(&self) -> STIRRoundProof<F, M> {
+    pub fn proof(&self) -> STIRRoundProof<F, M> {
         STIRRoundProof {
             commitment_digest: self.commitment.root(),
             out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
@@ -202,31 +178,28 @@ where
             proof_of_work_nonce: self.proof_of_work_nonce,
         }
     }
-    pub fn sponge_absorb(&mut self, element: impl Absorb) {
+    fn sponge_absorb(&mut self, element: impl Absorb) {
         self.sponge.absorb(&element);
     }
-    pub fn sponge_squeeze(&mut self) -> F {
+    fn sponge_squeeze(&mut self) -> F {
         self.sponge.squeeze_field_elements(1)[0]
     }
-    pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
+    fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
         self.sponge.squeeze_field_elements(num_elements)
     }
-    pub fn update_challenges(&mut self) {
+    fn update_challenges(&mut self) {
         let (domain_size, committed_values, commitment) = match self.is_final_round() {
-            true => (
-                self.domain.size(),
-                &self.committed_values,
-                &self.commitment,
-            ),
+            true => (self.domain.size(), &self.committed_values, &self.commitment),
             false => (
                 self.last_round_domain_size,
                 &self.last_round_committed_values,
                 &self.last_round_commitment,
             ),
         };
-        self.challenges = dedup((0..self.num_repetitions[self.round_num]).map(|_| {
-            squeeze_integer(&mut self.sponge, domain_size / self.folding_factor)
-        }));
+        self.challenges = dedup(
+            (0..self.num_repetitions[self.round_num])
+                .map(|_| squeeze_integer(&mut self.sponge, domain_size / self.folding_factor)),
+        );
         self.challenge_values = self
             .challenges
             .iter()
@@ -234,10 +207,11 @@ where
             .collect();
         self.challenge_answers = Vec::with_capacity(self.challenge_values.len());
         for challenge in &self.challenges {
-            self.challenge_answers.push(commitment.generate_proof(*challenge).unwrap());
+            self.challenge_answers
+                .push(commitment.generate_proof(*challenge).unwrap());
         }
     }
-    pub fn update_coeffs(&mut self) {
+    fn update_coeffs(&mut self) {
         // zip set and answers into Vec<(F, F)>
         let zipped: Vec<(F, F)> = self
             .quotient_set
@@ -267,7 +241,7 @@ where
         // witness_coeff
         self.witness_coeff = &quotient_coeff * &scaling_coeff;
     }
-    pub fn update_commitment(&mut self) {
+    fn update_commitment(&mut self) {
         self.last_round_commitment = self.commitment.clone();
         self.commitment = MerkleTree::<M>::new(
             &self.merkle_leaf_hash_param,
@@ -278,10 +252,10 @@ where
         // put it in the sponge
         self.sponge_absorb(&self.commitment.root());
     }
-    pub fn update_folding_randomness(&mut self) {
+    fn update_folding_randomness(&mut self) {
         self.folding_randomness = self.sponge_squeeze();
     }
-    pub fn update_out_of_domain_samples(&mut self) {
+    fn update_out_of_domain_samples(&mut self) {
         self.out_of_domain_samples = self.sponge_squeeze_multiple(self.num_out_of_domain_samples);
         self.out_of_domain_evaluations = self
             .out_of_domain_samples
@@ -290,16 +264,16 @@ where
             .collect();
         self.sponge_absorb(&self.out_of_domain_evaluations.clone());
     }
-    pub fn update_proof_of_work(&mut self) {
+    fn update_proof_of_work(&mut self) {
         self.proof_of_work_nonce = proof_of_work(
             &mut self.sponge,
             self.num_proof_of_work_bits[self.round_num],
         );
     }
-    pub fn update_proximity_generator_randomness(&mut self) {
+    fn update_proximity_generator_randomness(&mut self) {
         self.proximity_generator_randomness = self.sponge_squeeze();
     }
-    pub fn update_quotient_answers(&mut self) {
+    fn update_quotient_answers(&mut self) {
         let stir_randomness: Vec<F> = self
             .challenges
             .iter()
@@ -317,7 +291,67 @@ where
             .map(|x| self.witness_coeff.evaluate(x))
             .collect();
     }
-    pub fn update_round_num(&mut self) {
+    fn update_round_num(&mut self) {
         self.round_num = self.round_num + 1;
+    }
+}
+
+impl<F, M, S> Iterator for STIRRoundState<F, M, S>
+where
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+{
+    type Item = Self;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.round_num < self.num_rounds {
+            self.next_round();
+            Some(self.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl<F, M, S> Clone for STIRRoundState<F, M, S>
+where
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>>,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+{
+    fn clone(&self) -> Self {
+        STIRRoundState {
+            answer_coeff: self.answer_coeff.clone(),
+            domain: self.domain.clone(),
+            challenge_answers: self.challenge_answers.clone(),
+            challenge_values: self.challenge_values.clone(),
+            challenges: self.challenges.clone(),
+            commitment: self.commitment.clone(),
+            committed_values: self.committed_values.clone(),
+            folding_factor: self.folding_factor,
+            folding_randomness: self.folding_randomness,
+            last_round_commitment: self.last_round_commitment.clone(),
+            last_round_committed_values: self.last_round_committed_values.clone(),
+            last_round_domain_size: self.last_round_domain_size,
+            merkle_leaf_hash_param: self.merkle_leaf_hash_param.clone(),
+            merkle_two_to_one_param: self.merkle_two_to_one_param.clone(),
+            num_out_of_domain_samples: self.num_out_of_domain_samples,
+            num_proof_of_work_bits: self.num_proof_of_work_bits.clone(),
+            num_repetitions: self.num_repetitions.clone(),
+            num_rounds: self.num_rounds,
+            out_of_domain_samples: self.out_of_domain_samples.clone(),
+            out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
+            proof_of_work_nonce: self.proof_of_work_nonce,
+            proximity_generator_randomness: self.proximity_generator_randomness,
+            quotient_answers: self.quotient_answers.clone(),
+            quotient_set: self.quotient_set.clone(),
+            round_num: self.round_num,
+            shake_coeff: self.shake_coeff.clone(),
+            sponge: self.sponge.clone(),
+            witness_coeff: self.witness_coeff.clone(),
+        }
     }
 }

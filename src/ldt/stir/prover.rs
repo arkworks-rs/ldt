@@ -8,11 +8,7 @@ use ark_std::marker::PhantomData;
 
 use crate::{
     ldt::{
-        stir::{
-            config::STIRConfig,
-            proof::STIRProof,
-            state::STIRRoundState,
-        },
+        stir::{config::STIRConfig, proof::STIRProof, state::STIRRoundState},
         Prover,
     },
     witness::Witness,
@@ -46,7 +42,6 @@ where
     type Witness = W;
     type ProverConfig = STIRConfig<M, S>;
     type Proof = STIRProof<F, M>;
-
     fn new(config: STIRConfig<M, S>) -> Self {
         Self {
             config,
@@ -55,12 +50,10 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-
     fn prove(&self, witness: &W) -> Self::Proof {
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        // Step 1: state from witness
-        let mut state = STIRRoundState::<F, M, S>::new(
+        let proofs = STIRRoundState::<F, M, S>::new(
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),
@@ -73,16 +66,12 @@ where
             self.config.num_rounds,
             self.config.sponge_config.clone(),
             witness.coeff(),
-        );
+        )
+        .map(|round| round.proof())
+        .collect();
 
-        // Step 2: compute inner rounds
-        let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
-        for _round in 0..=self.config.num_rounds {
-            state.next();
-            round_proofs.push(state.round_proof());
+        STIRProof::<F, M> {
+            round_proofs: proofs,
         }
-
-        // Boom.
-        STIRProof::<F, M> { round_proofs }
     }
 }
