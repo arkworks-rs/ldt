@@ -117,18 +117,18 @@ where
     // pub fn domain(&self) -> Domain<F> {
     //     self.domain.clone()
     // }
-    pub fn fold(&mut self, folding_factor: usize) {
+    pub fn fold(&mut self) {
         self.last_round_domain_size = self.domain.size();
         let folded_coeff = poly_utils::folding::poly_fold(
             &self.witness_coeff.clone(),
-            folding_factor,
+            self.folding_factor,
             self.folding_randomness,
         );
         let scaled_domain = self.domain.clone().scale_offset(2);
         let evals = folded_coeff
             .evaluate_over_domain_by_ref(scaled_domain.backing_domain)
             .evals;
-        let folded_committed_values = stack_evaluations(evals, folding_factor);
+        let folded_committed_values = stack_evaluations(evals, self.folding_factor);
         self.witness_coeff = folded_coeff;
         self.domain = scaled_domain;
         self.last_round_committed_values = self.committed_values.clone();
@@ -143,6 +143,35 @@ where
     // pub fn sponge(&self) -> S {
     //     self.sponge
     // }
+    pub fn next_state(&mut self) {
+        // Step 1: Perform fold/scale operation
+        self.fold();
+
+        // Step 2: Generate commitment on the folded stuff
+        self.update_commitment();
+
+        // Step 3: Out of domain samples
+        self.update_out_of_domain_samples();
+
+        // Step 4: Squeeze some randomness
+        self.update_proximity_generator_randomness();
+        self.update_folding_randomness();
+
+        // Step 5: Generate challenges and answers
+        self.update_challenges();
+
+        // Step 6: Proof of work
+        self.update_proof_of_work();
+
+        // Step 7: Squeeze more randomness (used by only verifier)
+        let _shake_randomness: F = self.sponge_squeeze();
+
+        // Step 6: Generate quotient set and answers
+        self.update_quotient_answers();
+
+        // Step 7: Compute coeffs
+        self.update_coeffs();
+    }
     pub fn round_num(&self) -> usize {
         self.round_num
     }
@@ -188,6 +217,36 @@ where
             );
         }
         self.challenge_answers = challenge_answers;
+    }
+    pub fn update_coeffs(&mut self) {
+        // answer_coeff
+        let zipped: Vec<(F, F)> = self
+            .quotient_set
+            .clone()
+            .into_iter()
+            .zip(self.quotient_answers.clone().into_iter())
+            .collect();
+        self.answer_coeff = poly_utils::interpolation::naive_interpolation(&zipped);
+        // shake_coeff
+        let mut shake_coeff = DensePolynomial::from_coefficients_vec(vec![]);
+        for (x, y) in &zipped {
+            let num_coeff = &self.answer_coeff - &DensePolynomial::from_coefficients_vec(vec![*y]);
+            let den_coeff = DensePolynomial::from_coefficients_vec(vec![-*x, F::ONE]);
+            shake_coeff = shake_coeff + (&num_coeff / &den_coeff);
+        }
+        self.shake_coeff = shake_coeff;
+        // quotient_coeff
+        let quotient_coeff =
+            poly_utils::quotient::poly_quotient(&self.witness_coeff, &self.quotient_set);
+        // scaling_coeff: 1 + r * x + r^2 * x^2 + ... + r^n * x^n
+        let scaling_coeff = DensePolynomial::from_coefficients_vec(
+            (0..=self.quotient_set.len())
+                .map(|i| self.proximity_generator_randomness.pow([i as u64]))
+                .collect(),
+        );
+
+        // Compute the witness polynomial
+        self.witness_coeff = &quotient_coeff * &scaling_coeff;
     }
     pub fn update_commitment(&mut self) {
         self.last_round_commitment = self.commitment.clone();
