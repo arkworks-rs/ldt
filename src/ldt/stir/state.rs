@@ -23,6 +23,9 @@ where
     pub commitment: MerkleTree<M>,
     pub committed_values: Vec<Vec<F>>,
     pub folding_randomness: F,
+    pub last_round_commitment: MerkleTree<M>,
+    pub last_round_committed_values: Vec<Vec<F>>,
+    pub last_round_domain_size: usize,
     pub merkle_leaf_hash_param: LeafParam<M>,
     pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub num_out_of_domain_samples: usize,
@@ -55,13 +58,21 @@ where
         sponge.absorb(&commitment.root());
         Self {
             answer_coeff: DensePolynomial::from_coefficients_vec(vec![]),
-            domain,
+            domain: domain.clone(),
             challenge_answers: vec![],
             challenge_values: vec![],
             coeff,
             commitment,
-            committed_values,
+            committed_values: committed_values.clone(),
             folding_randomness: sponge.squeeze_field_elements(1)[0],
+            last_round_domain_size: domain.size(),
+            last_round_commitment: MerkleTree::<M>::new(
+                &merkle_leaf_hash_param,
+                &merkle_two_to_one_param,
+                &committed_values,
+            )
+            .unwrap(),
+            last_round_committed_values: committed_values,
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             num_out_of_domain_samples,

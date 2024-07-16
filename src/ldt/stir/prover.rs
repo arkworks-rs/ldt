@@ -146,7 +146,6 @@ where
         config: &STIRConfig<W::MerkleConfig, S>,
         mut round_state: STIRRoundState<F, W::MerkleConfig, S>,
     ) -> STIRRoundState<F, M, S> {
-        let last_round_domain = round_state.domain.clone();
         let last_round_commitment = round_state.commitment.clone();
         let last_round_committed_values = round_state.committed_values.clone();
 
@@ -165,15 +164,16 @@ where
 
         // Step 5: Generate challenges and answers
         let tmp_round_num = round_state.round_num;
+        let scaling_factor = round_state.last_round_domain_size / config.folding_factor;
         let challenges = Self::challenges(
             &mut round_state,
-            last_round_domain.size() / config.folding_factor,
+            scaling_factor,
             config.repetitions[tmp_round_num],
         );
         let (challenge_values, challenge_answers) = Self::challenge_answers(
             challenges.clone(),
-            last_round_commitment,
-            last_round_committed_values,
+            last_round_commitment.clone(),
+            last_round_committed_values.clone(),
         );
 
         // Step 6: Proof of work
@@ -205,13 +205,16 @@ where
         // Step 8: Return
         let new_round_state = STIRRoundState {
             answer_coeff,
-            domain: round_state.domain,
+            domain: round_state.domain.clone(),
             challenge_answers,
             challenge_values,
             coeff: witness_coeff, // witness_coeff
             commitment: round_state.commitment,
             committed_values: round_state.committed_values,
             folding_randomness: round_state.folding_randomness,
+            last_round_domain_size: round_state.domain.size(),
+            last_round_commitment,
+            last_round_committed_values,
             merkle_leaf_hash_param: round_state.merkle_leaf_hash_param,
             merkle_two_to_one_param: round_state.merkle_two_to_one_param,
             num_out_of_domain_samples: config.num_out_of_domain_samples,
