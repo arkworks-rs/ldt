@@ -3,19 +3,18 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
-use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, Polynomial};
+use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 
 use crate::{
     ldt::{
         stir::{
             config::STIRConfig,
-            proof::{STIRProof, STIRRoundProof},
+            proof::STIRProof,
             state::STIRRoundState,
         },
         Prover,
     },
-    poly_utils,
     witness::Witness,
 };
 
@@ -60,8 +59,8 @@ where
     fn prove(&self, witness: &W) -> Self::Proof {
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        // Step 1: initial state
-        let mut round_state = STIRRoundState::<F, M, S>::new(
+        // Step 1: state from witness
+        let mut state = STIRRoundState::<F, M, S>::new(
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),
@@ -79,8 +78,8 @@ where
         // Step 2: compute inner rounds
         let mut round_proofs = Vec::with_capacity(self.config.num_rounds);
         for _round in 0..=self.config.num_rounds {
-            round_state.next();
-            round_proofs.push(round_state.round_proof());
+            state.next();
+            round_proofs.push(state.round_proof());
         }
 
         // Boom.
