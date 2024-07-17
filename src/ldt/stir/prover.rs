@@ -41,7 +41,7 @@ where
 {
     type Witness = W;
     type ProverConfig = STIRConfig<M, S>;
-    type Proof = STIRProof<F, M>;
+    type Proof = STIRProof<F, M, S>;
 
     fn new(config: STIRConfig<M, S>) -> Self {
         Self {
@@ -64,7 +64,7 @@ where
         .map(|round| round.proof())
         .collect();
 
-        STIRProof::<F, M> {
+        STIRProof::<F, M, S> {
             round_proofs: proofs,
         }
     }

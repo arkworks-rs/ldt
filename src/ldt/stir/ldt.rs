@@ -38,7 +38,7 @@ where
     W::ChallengeAnswers: Clone,
 {
     type LDTConfig = STIRConfig<M, S>;
-    type Proof = STIRProof<F, M>;
+    type Proof = STIRProof<F, M, S>;
     type Prover = STIRProver<F, M, S, W>;
     type Verifier = STIRVerifier<F, M, S, W>;
 

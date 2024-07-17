@@ -40,7 +40,7 @@ where
     S: CryptographicSponge,
     W: Witness<F, M>,
 {
-    type Claim = SingleStatement<M>;
+    type Statement = SingleStatement<M>;
     type VerifierConfig = FRIConfig<M, S>;
     type Proof = FRIProof<F, M>;
     fn new(verifier_config: FRIConfig<M, S>) -> Self {
@@ -51,7 +51,7 @@ where
             _sponge_config: PhantomData::<S>,
         }
     }
-    fn verify(&self, claim: &Self::Claim, proof: &Self::Proof) -> bool {
+    fn verify(&self, claim: &Self::Statement, proof: &Self::Proof) -> bool {
         // TODO fix this
         // if proof.final_polynomial.degree() + 1 > self.parameters.stopping_degree {
         //     return false;

@@ -112,13 +112,14 @@ where
     fn is_final_round(&self) -> bool {
         self.round_num == self.config.num_rounds
     }
-    pub fn proof(&self) -> STIRRoundProof<F, M> {
+    pub fn proof(&self) -> STIRRoundProof<F, M, S> {
         STIRRoundProof {
             commitment_digest: self.commitment.root(),
             out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
             challenge_values: self.challenge_values.clone(),
             challenge_answers: self.challenge_answers.clone(),
             coeff: self.answer_coeff.clone(),
+            config: self.config.clone(),
             is_final_round: self.is_final_round(),
             shake_coeff: self.shake_coeff.clone(),
             proof_of_work_nonce: self.proof_of_work_nonce,

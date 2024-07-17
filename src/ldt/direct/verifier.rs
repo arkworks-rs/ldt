@@ -37,7 +37,7 @@ where
     W: Witness<F, M>,
     W::ChallengeAnswers: Clone,
 {
-    type Claim = SingleStatement<M>;
+    type Statement = SingleStatement<M>;
     type VerifierConfig = DirectConfig<M, S>;
     type Proof = DirectProof<F, M, S>;
 
@@ -50,7 +50,7 @@ where
             _witness: PhantomData::<W>,
         }
     }
-    fn verify(&self, claim: &Self::Claim, proof: &Self::Proof) -> bool {
+    fn verify(&self, claim: &Self::Statement, proof: &Self::Proof) -> bool {
         // regenerate the challenges
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&claim.commitment_digest());

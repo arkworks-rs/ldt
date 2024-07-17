@@ -104,9 +104,9 @@ where
     W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
 {
-    type Claim = SingleStatement<M>;
+    type Statement = SingleStatement<M>;
     type VerifierConfig = STIRConfig<M, S>;
-    type Proof = STIRProof<F, M>;
+    type Proof = STIRProof<F, M, S>;
 
     fn new(config: STIRConfig<M, S>) -> Self {
         Self {
@@ -117,7 +117,7 @@ where
             _witness: PhantomData::<W>,
         }
     }
-    fn verify(&self, claim: &Self::Claim, proof: &Self::Proof) -> bool {
+    fn verify(&self, claim: &Self::Statement, proof: &Self::Proof) -> bool {
         // if proof.final_round_proof.coeff.degree() + 1 > self.config.stopping_degree { // TODO: fix this
         //     return false;
         // }
@@ -429,7 +429,7 @@ where
     fn round(
         &self,
         sponge: &mut impl CryptographicSponge,
-        round_proof: &STIRRoundProof<F, W::MerkleConfig>,
+        round_proof: &STIRRoundProof<F, M, S>,
         verification_state: VerificationState<F>,
     ) -> Option<VerificationState<F>> {
         // Redo FS
