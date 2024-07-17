@@ -21,11 +21,13 @@ use crate::{
     witness::Witness,
 };
 
+use super::verifier_state::STIRVerifierState;
+
 #[derive(Debug)]
 pub struct VirtualFunction<F: FftField> {
-    comb_randomness: F,
-    interpolating_polynomial: DensePolynomial<F>,
-    quotient_set: Vec<F>,
+    pub comb_randomness: F,
+    pub interpolating_polynomial: DensePolynomial<F>,
+    pub quotient_set: Vec<F>,
 }
 
 #[derive(Debug)]
@@ -128,44 +130,45 @@ where
         }
 
         // Step 2: Recompute
-        let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&claim.commitment_digest());
-        let folding_randomness = sponge.squeeze_field_elements(1)[0];
+        let mut state = STIRVerifierState::new(self.config.clone(), claim.commitment_digest());
+        // let mut sponge = S::new(&self.config.sponge_config);
+        // sponge.absorb(&claim.commitment_digest());
+        // let folding_randomness = sponge.squeeze_field_elements(1)[0];
 
-        let domain =
-            Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
+        // let domain =
+        //     Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
 
-        let domain_gen = domain.element(1);
-        let domain_size = domain.size();
+        // let domain_gen = domain.element(1);
+        // let domain_size = domain.size();
 
-        let mut verification_state = VerificationState {
-            oracle: OracleType::Initial,
-            domain_gen,
-            domain_size,
-            domain_offset: F::ONE,
-            root_of_unity: domain_gen,
-            num_round: 0,
-            folding_randomness,
-        };
+        // let mut verification_state = VerificationState {
+        //     oracle: OracleType::Initial,
+        //     domain_gen,
+        //     domain_size,
+        //     domain_offset: F::ONE,
+        //     root_of_unity: domain_gen,
+        //     num_round: 0,
+        //     folding_randomness,
+        // };
 
         for round_proof in &proof.rounds {
             if !round_proof.is_final_round {
-                let round_result = self.round(&mut sponge, round_proof, verification_state);
+                let round_result = self.round(round_proof, state);
                 if round_result.is_none() {
                     return false;
                 }
-                verification_state = round_result.unwrap();
+                state = round_result.unwrap();
             }
         }
 
         // Now, we sample the last points that we want to check consisntency at
         let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
-        let scaling_factor = verification_state.domain_size / self.config.folding_factor;
+        let scaling_factor = state.domain_size / self.config.folding_factor;
         let final_randomness_indexes =
-            dedup((0..final_repetitions).map(|_| squeeze_integer(&mut sponge, scaling_factor)));
+            dedup((0..final_repetitions).map(|_| squeeze_integer(&mut state.sponge, scaling_factor)));
 
         if !proof_of_work_verify(
-            &mut sponge,
+            &mut state.sponge,
             self.config.num_proof_of_work_bits[self.config.num_rounds],
             proof.rounds.last().unwrap().proof_of_work_nonce,
         ) {
@@ -177,7 +180,7 @@ where
         let oracle_answers = proof.rounds.last().unwrap().challenge_values.clone();
 
         let folded_answers = self.compute_folded_evaluations(
-            &verification_state,
+            &state,
             final_randomness_indexes,
             oracle_answers,
         );
@@ -200,7 +203,7 @@ where
 {
     fn compute_folded_evaluations(
         &self,
-        verification_state: &VerificationState<F>,
+        verification_state: &STIRVerifierState<F, M, S>,
         stir_randomness_indexes: Vec<usize>,
         oracle_answers: Vec<Vec<F>>,
     ) -> Vec<(F, F)> {
@@ -410,32 +413,31 @@ where
     }
     fn round(
         &self,
-        sponge: &mut impl CryptographicSponge,
         round_proof: &STIRProofRound<F, M, S>,
-        verification_state: VerificationState<F>,
-    ) -> Option<VerificationState<F>> {
+        mut verification_state: STIRVerifierState<F, M, S>,
+    ) -> Option<STIRVerifierState<F, M, S>> {
         // Redo FS
-        sponge.absorb(&round_proof.commitment_digest);
-        let ood_randomness = sponge.squeeze_field_elements(self.config.num_out_of_domain_samples);
-        sponge.absorb(&round_proof.out_of_domain_evaluations);
-        let comb_randomness = sponge.squeeze_field_elements(1)[0];
-        let new_folding_randomness = sponge.squeeze_field_elements(1)[0];
+        verification_state.sponge_absorb(&round_proof.commitment_digest);
+        let ood_randomness = verification_state.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
+        verification_state.sponge_absorb(&round_proof.out_of_domain_evaluations);
+        let comb_randomness = verification_state.sponge_squeeze();
+        let new_folding_randomness = verification_state.sponge_squeeze();
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
 
-        let num_repetitions = self.config.num_repetitions[verification_state.num_round];
+        let num_repetitions = self.config.num_repetitions[verification_state.round_num];
         let stir_randomness_indexes =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(sponge, scaling_factor)));
+            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut verification_state.sponge, scaling_factor)));
 
         // PoW verification
         if !proof_of_work_verify(
-            sponge,
-            self.config.num_proof_of_work_bits[verification_state.num_round],
+            &mut verification_state.sponge,
+            self.config.num_proof_of_work_bits[verification_state.round_num],
             round_proof.proof_of_work_nonce,
         ) {
             return None;
         }
 
-        let shake_randomness = sponge.squeeze_field_elements(1)[0];
+        let shake_randomness = verification_state.sponge_squeeze();
 
         // Now, we are starting to define the next function.
         // First, we need to query the previous oracle (which is either f_0 or g_i)
@@ -486,21 +488,38 @@ where
             .map(|(x, _)| x)
             .collect::<Vec<_>>();
 
-        Some(VerificationState {
+        Some(STIRVerifierState {
+            config: self.config.clone(),
+            domain_gen: verification_state.domain_gen * verification_state.domain_gen,
+            domain_offset: verification_state.domain_offset
+                * verification_state.domain_offset
+                * verification_state.root_of_unity,
+            domain_size: verification_state.domain_size / 2,
+            folding_randomness: new_folding_randomness,
             oracle: OracleType::Virtual(VirtualFunction {
                 comb_randomness,
                 quotient_set,
                 interpolating_polynomial,
             }),
-            // TODO: We can optimize
-            domain_size: verification_state.domain_size / 2,
-            domain_gen: verification_state.domain_gen * verification_state.domain_gen,
-            domain_offset: verification_state.domain_offset
-                * verification_state.domain_offset
-                * verification_state.root_of_unity,
             root_of_unity: verification_state.root_of_unity,
-            folding_randomness: new_folding_randomness,
-            num_round: verification_state.num_round + 1,
+            round_num: verification_state.round_num + 1,
+            sponge: verification_state.sponge,
+
+
+            // oracle: OracleType::Virtual(VirtualFunction {
+            //     comb_randomness,
+            //     quotient_set,
+            //     interpolating_polynomial,
+            // }),
+            // // TODO: We can optimize
+            // domain_size: verification_state.domain_size / 2,
+            // domain_gen: verification_state.domain_gen * verification_state.domain_gen,
+            // domain_offset: verification_state.domain_offset
+            //     * verification_state.domain_offset
+            //     * verification_state.root_of_unity,
+            // root_of_unity: verification_state.root_of_unity,
+            // folding_randomness: new_folding_randomness,
+            // num_round: verification_state.num_round + 1,
         })
     }
 }

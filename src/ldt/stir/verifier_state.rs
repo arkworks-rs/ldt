@@ -5,9 +5,9 @@ use ark_crypto_primitives::{
 use ark_ff::{FftField, PrimeField};
 use ark_poly::EvaluationDomain;
 
-use crate::domain::Domain;
+use crate::{domain::Domain, poly_utils};
 
-use super::config::STIRConfig;
+use super::{config::STIRConfig, verifier::OracleType};
 
 pub struct STIRVerifierState<F, M, S>
 where
@@ -20,6 +20,7 @@ where
     pub domain_offset: F,
     pub domain_size: usize,
     pub folding_randomness: F,
+    pub oracle: OracleType<F>,
     pub root_of_unity: F,
     pub round_num: usize,
     pub sponge: S,
@@ -48,9 +49,52 @@ where
             domain_offset: F::one(),
             domain_size,
             folding_randomness,
+            oracle: OracleType::Initial,
             root_of_unity: domain_gen,
             round_num: 0,
             sponge,
+        }
+    }
+    pub fn sponge_absorb(&mut self, element: impl Absorb) {
+        self.sponge.absorb(&element);
+    }
+    pub fn sponge_squeeze(&mut self) -> F {
+        self.sponge.squeeze_field_elements(1)[0]
+    }
+    pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
+        self.sponge.squeeze_field_elements(num_elements)
+    }
+    // TODO: Nuke this
+    pub fn query(
+        &self,
+        evaluation_point: F,
+        value_of_prev_oracle: F,
+        common_factors_inverse: F,
+        denom_hint: F,
+        ans_eval: F,
+    ) -> F {
+        match &self.oracle {
+            OracleType::Initial => value_of_prev_oracle, // In case this is the initial function, we just return the value of the previous oracle
+            OracleType::Virtual(virtual_function) => {
+                let num_terms = virtual_function.quotient_set.len();
+                let quotient_evaluation = poly_utils::quotient::quotient_with_hint(
+                    value_of_prev_oracle,
+                    evaluation_point,
+                    &virtual_function.quotient_set,
+                    denom_hint,
+                    ans_eval,
+                );
+
+                let common_factor = evaluation_point * virtual_function.comb_randomness;
+
+                let scale_factor = if common_factor != F::ONE {
+                    (F::ONE - common_factor.pow([(num_terms + 1) as u64])) * common_factors_inverse
+                } else {
+                    F::from((num_terms + 1) as u64)
+                };
+
+                quotient_evaluation * scale_factor
+            }
         }
     }
 }
