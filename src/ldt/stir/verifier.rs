@@ -124,7 +124,7 @@ where
 
         // First we verify all Merkle paths
         let mut current_root = claim.commitment_digest();
-        for round_proof in &proof.round_proofs {
+        for round_proof in &proof.rounds {
             for (leaf_value, inclusion_proof) in round_proof
                 .challenge_values
                 .iter()
@@ -166,7 +166,7 @@ where
             folding_randomness,
         };
 
-        for round_proof in &proof.round_proofs {
+        for round_proof in &proof.rounds {
             if round_proof.is_final_round == false {
                 let round_result = self.round(&mut sponge, round_proof, verification_state);
                 if round_result.is_none() {
@@ -185,14 +185,14 @@ where
         if !proof_of_work_verify(
             &mut sponge,
             self.config.num_proof_of_work_bits[self.config.num_rounds],
-            proof.round_proofs.last().unwrap().proof_of_work_nonce,
+            proof.rounds.last().unwrap().proof_of_work_nonce,
         ) {
             return false;
         }
 
         // First, we want to query back the last oracle at this point, which is, again, just a
         // lookup
-        let oracle_answers = proof.round_proofs.last().unwrap().challenge_values.clone();
+        let oracle_answers = proof.rounds.last().unwrap().challenge_values.clone();
 
         let folded_answers = self.compute_folded_evaluations(
             &verification_state,
@@ -200,9 +200,9 @@ where
             oracle_answers,
         );
 
-        folded_answers.into_iter().all(|(point, value)| {
-            proof.round_proofs.last().unwrap().coeff.evaluate(&point) == value
-        })
+        folded_answers
+            .into_iter()
+            .all(|(point, value)| proof.rounds.last().unwrap().coeff.evaluate(&point) == value)
     }
 }
 

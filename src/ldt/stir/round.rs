@@ -114,15 +114,16 @@ where
     }
     pub fn proof(&self) -> STIRRoundProof<F, M, S> {
         STIRRoundProof {
-            commitment_digest: self.commitment.root(),
-            out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
+            coeff: self.answer_coeff.clone(),
             challenge_values: self.challenge_values.clone(),
             challenge_answers: self.challenge_answers.clone(),
-            coeff: self.answer_coeff.clone(),
+            commitment_digest: self.commitment.root(),
             config: self.config.clone(),
             is_final_round: self.is_final_round(),
-            shake_coeff: self.shake_coeff.clone(),
+            last_round_commitment_digest: self.last_round_commitment.root(),
+            out_of_domain_evaluations: self.out_of_domain_evaluations.clone(),
             proof_of_work_nonce: self.proof_of_work_nonce,
+            shake_coeff: self.shake_coeff.clone(),
         }
     }
     fn sponge_absorb(&mut self, element: impl Absorb) {

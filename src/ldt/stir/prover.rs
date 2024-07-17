@@ -8,7 +8,11 @@ use ark_std::marker::PhantomData;
 
 use crate::{
     ldt::{
-        stir::{config::STIRConfig, proof::STIRProof, round::STIRRound},
+        stir::{
+            config::STIRConfig,
+            proof::{STIRProof, STIRRoundProof},
+            round::STIRRound,
+        },
         Prover,
     },
     witness::Witness,
@@ -54,7 +58,7 @@ where
     fn prove(&self, witness: &W) -> Self::Proof {
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        let proofs = STIRRound::<F, M, S>::new(
+        let rounds: Vec<STIRRoundProof<F, M, S>> = STIRRound::<F, M, S>::new(
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),
@@ -64,8 +68,6 @@ where
         .map(|round| round.proof())
         .collect();
 
-        STIRProof::<F, M, S> {
-            round_proofs: proofs,
-        }
+        STIRProof::<F, M, S> { rounds }
     }
 }
