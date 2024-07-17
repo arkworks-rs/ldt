@@ -140,62 +140,81 @@ where
         }
         scales
     }
+    fn query_sets(coset_offsets: Vec<F>, folding_factor: usize, generator: F) -> Vec<Vec<F>> {
+        let scales: Vec<F> = Self::scales(folding_factor, generator);
+        coset_offsets
+            .iter()
+            .map(|coset_offset| {
+                (0..folding_factor)
+                    .map(|j| *coset_offset * scales[j])
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+    fn common_factors(common_factor_scale: F, query_sets: Vec<Vec<F>>) -> Vec<Vec<F>> {
+        query_sets
+            .into_iter()
+            .map(|query_set| {
+                query_set
+                    .into_iter()
+                    .map(|entry| F::ONE - common_factor_scale * entry)
+                    .collect()
+            })
+            .collect()
+    }
+    fn denominators(
+        query_sets: Vec<Vec<F>>,
+        quotient_set: Vec<F>,
+        round_num: usize,
+    ) -> Vec<Vec<F>> {
+        query_sets
+            .iter()
+            .map(|query_set| match round_num {
+                0 => vec![F::ONE; query_set.len()],
+                _ => query_set
+                    .iter()
+                    .map(|eval_point| quotient_set.iter().map(|x| *eval_point - x).product::<F>())
+                    .collect(),
+            })
+            .collect()
+    }
     fn compute_folded_evaluations(
         &self,
         state: &STIRVerifierState<F, M, S>,
         randomness_indices: Vec<usize>,
         oracle_answers: Vec<Vec<F>>,
     ) -> Vec<(F, F)> {
+        // Step 1: Generator
         let generator = Self::generator(
             state.domain_gen,
             state.domain_size,
             self.config.folding_factor,
         );
-
-        // We do a single batch inversion
+        // Step 2: Coset offsets
         let coset_offsets: Vec<F> = Self::coset_offsets(
             state.domain_gen,
             state.domain_offset,
             randomness_indices.clone(),
         );
+        // Step 3: Query sets
+        let query_sets: Vec<Vec<F>> =
+            Self::query_sets(coset_offsets.clone(), self.config.folding_factor, generator);
 
-        // We use this to more efficiently compute query_sets
-        let scales = Self::scales(self.config.folding_factor, generator);
+        // Step 4: Common Factors
+        let common_factors = Self::common_factors(state.comb_randomness, query_sets.clone());
 
-        let query_sets: Vec<_> = coset_offsets
-            .iter()
-            .map(|coset_offset| {
-                (0..self.config.folding_factor)
-                    .map(|j| *coset_offset * scales[j])
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-        let common_factor_scale = state.comb_randomness;
-
-        let global_common_factors = query_sets
-            .iter()
-            .map(|query_set| query_set.iter().map(|x| F::ONE - common_factor_scale * x));
-
-        let global_denominators = query_sets.iter().map(|query_set| match &state.round_num {
-            0 => vec![F::ONE; query_set.len()],
-            _ => query_set
-                .iter()
-                .map(|eval_point| {
-                    state
-                        .quotient_set
-                        .iter()
-                        .map(|x| *eval_point - x)
-                        .product::<F>()
-                })
-                .collect::<Vec<_>>(),
-        });
+        // Step 5: Denominators
+        let global_denominators = Self::denominators(
+            query_sets.clone(),
+            state.quotient_set.clone(),
+            state.round_num,
+        );
 
         // To invert contains a bunch of stuff offsets, generator, size, and common factors
         let size = F::from(self.config.folding_factor as u64);
         let mut to_invert = vec![];
-        let global_common_factors_len = global_common_factors.len();
-        for common_factors in global_common_factors {
+        let common_factors_len = common_factors.len();
+        for common_factors in common_factors {
             to_invert.extend(common_factors);
         }
         for denominators in global_denominators {
@@ -214,8 +233,8 @@ where
             .collect();
 
         // TODO: Could be split_off
-        let common_factors_inv = chunked[0..global_common_factors_len].to_vec();
-        let denominators_inv = chunked[global_common_factors_len..].to_vec();
+        let common_factors_inv = chunked[0..common_factors_len].to_vec();
+        let denominators_inv = chunked[common_factors_len..].to_vec();
 
         let evaluations_of_ans: Vec<_> = coset_offsets
             .iter()
