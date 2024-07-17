@@ -9,9 +9,13 @@ use ark_poly::{
 };
 use itertools::izip;
 
-use crate::{domain::Domain, poly_utils};
+use crate::{
+    domain::Domain,
+    poly_utils,
+    utils::{dedup, proof_of_work_verify, squeeze_integer},
+};
 
-use super::config::STIRConfig;
+use super::{config::STIRConfig, proof::STIRProof};
 
 pub struct STIRVerifierState<F, M, S>
 where
@@ -348,7 +352,6 @@ where
             }
         }
     }
-
     fn query_sets(&self, coset_offsets: Vec<F>, generator: F) -> Vec<Vec<F>> {
         let scales: Vec<F> = self.scales(generator);
         coset_offsets
@@ -360,6 +363,11 @@ where
             })
             .collect()
     }
+    pub fn randomness_indices(&mut self) -> Vec<usize> {
+        let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
+        let scaling_factor = self.domain_size / self.config.folding_factor;
+        dedup((0..final_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)))
+    }
     fn scales(&self, generator: F) -> Vec<F> {
         let scale = generator;
         let mut temp = F::ONE;
@@ -369,5 +377,16 @@ where
             temp *= scale;
         }
         scales
+    }
+    pub fn verify_proof_of_work(&mut self, proof: &STIRProof<F, M, S>) -> bool {
+        proof_of_work_verify(
+            &mut self.sponge,
+            self.config.num_proof_of_work_bits[self.config.num_rounds],
+            proof
+                .rounds
+                .get(self.round_num)
+                .unwrap()
+                .proof_of_work_nonce,
+        )
     }
 }

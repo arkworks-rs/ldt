@@ -57,7 +57,7 @@ where
         // squeeze out the challenges as indices
         let mut challenges = Vec::with_capacity(self.config.num_challenges);
         for _ in 0..self.config.num_challenges {
-            challenges.push(squeeze_integer(&mut sponge, 32)); // TODO (z-tech): this range must be set properly
+            challenges.push(squeeze_integer(&mut sponge, 32));
         }
         // verifiy the proof against the claim
         proof.verify(claim.commitment_digest(), challenges)
