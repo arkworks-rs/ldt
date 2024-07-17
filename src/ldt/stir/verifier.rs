@@ -11,7 +11,7 @@ use crate::{
     ldt::{
         stir::{
             config::STIRConfig,
-            proof::{STIRProof, STIRRoundProof},
+            proof::{STIRProof, STIRProofRound},
         },
         Verifier,
     },
@@ -122,30 +122,12 @@ where
         //     return false;
         // }
 
-        // First we verify all Merkle paths
-        let mut current_root = claim.commitment_digest();
-        for round_proof in &proof.rounds {
-            for (leaf_value, inclusion_proof) in round_proof
-                .challenge_values
-                .iter()
-                .zip(round_proof.challenge_answers.iter())
-            {
-                if !inclusion_proof
-                    .verify(
-                        &self.config.merkle_leaf_hash_param,
-                        &self.config.merkle_two_to_one_param,
-                        &current_root,
-                        leaf_value,
-                    )
-                    .unwrap()
-                {
-                    return false;
-                }
-            }
-            current_root = round_proof.commitment_digest.clone();
+        // Step 1: Verify merkle paths for all rounds
+        if !proof.verify_challenge_answers() {
+            return false;
         }
 
-        // Now, we recompute
+        // Step 2: recompute
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&claim.commitment_digest());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
@@ -429,7 +411,7 @@ where
     fn round(
         &self,
         sponge: &mut impl CryptographicSponge,
-        round_proof: &STIRRoundProof<F, M, S>,
+        round_proof: &STIRProofRound<F, M, S>,
         verification_state: VerificationState<F>,
     ) -> Option<VerificationState<F>> {
         // Redo FS

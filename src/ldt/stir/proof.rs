@@ -7,7 +7,7 @@ use ark_poly::univariate::DensePolynomial;
 
 use super::config::STIRConfig;
 
-pub struct STIRRoundProof<F: Field, M: MerkleConfig, S: CryptographicSponge> {
+pub struct STIRProofRound<F: Field, M: MerkleConfig, S: CryptographicSponge> {
     pub coeff: DensePolynomial<F>,
     pub challenge_answers: Vec<Path<M>>,
     pub challenge_values: Vec<Vec<F>>,
@@ -20,7 +20,7 @@ pub struct STIRRoundProof<F: Field, M: MerkleConfig, S: CryptographicSponge> {
     pub shake_coeff: DensePolynomial<F>, // Note: empty when is_final_round = true
 }
 
-impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRRoundProof<F, M, S> {
+impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProofRound<F, M, S> {
     pub fn new(
         coeff: DensePolynomial<F>,
         challenge_answers: Vec<Path<M>>,
@@ -33,7 +33,7 @@ impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRRound
         proof_of_work_nonce: Option<usize>,
         shake_coeff: DensePolynomial<F>,
     ) -> Self {
-        STIRRoundProof {
+        STIRProofRound {
             coeff,
             challenge_answers,
             challenge_values,
@@ -56,7 +56,7 @@ impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRRound
                 .verify(
                     &self.config.merkle_leaf_hash_param,
                     &self.config.merkle_two_to_one_param,
-                    &self.commitment_digest,
+                    &self.last_round_commitment_digest,
                     challenge_value,
                 )
                 .unwrap()
@@ -68,7 +68,7 @@ impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRRound
     }
 }
 
-impl<F, M, S> Clone for STIRRoundProof<F, M, S>
+impl<F, M, S> Clone for STIRProofRound<F, M, S>
 where
     F: Field,
     M: MerkleConfig,
@@ -76,7 +76,7 @@ where
     S::Config: Clone,
 {
     fn clone(&self) -> Self {
-        STIRRoundProof {
+        STIRProofRound {
             coeff: self.coeff.clone(),
             challenge_answers: self.challenge_answers.clone(),
             challenge_values: self.challenge_values.clone(),
@@ -92,7 +92,7 @@ where
 }
 
 pub struct STIRProof<F: Field, M: MerkleConfig, S: CryptographicSponge> {
-    pub rounds: Vec<STIRRoundProof<F, M, S>>,
+    pub rounds: Vec<STIRProofRound<F, M, S>>,
 }
 
 impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProof<F, M, S> {

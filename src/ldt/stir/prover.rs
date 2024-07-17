@@ -10,7 +10,7 @@ use crate::{
     ldt::{
         stir::{
             config::STIRConfig,
-            proof::{STIRProof, STIRRoundProof},
+            proof::{STIRProof, STIRProofRound},
             round::STIRRound,
         },
         Prover,
@@ -58,7 +58,7 @@ where
     fn prove(&self, witness: &W) -> Self::Proof {
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        let rounds: Vec<STIRRoundProof<F, M, S>> = STIRRound::<F, M, S>::new(
+        let rounds: Vec<STIRProofRound<F, M, S>> = STIRRound::<F, M, S>::new(
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),

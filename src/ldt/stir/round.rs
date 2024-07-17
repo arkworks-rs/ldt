@@ -11,7 +11,7 @@ use crate::{
     utils::{dedup, proof_of_work, squeeze_integer, stack_evaluations},
 };
 
-use super::{config::STIRConfig, proof::STIRRoundProof};
+use super::{config::STIRConfig, proof::STIRProofRound};
 
 pub struct STIRRound<F, M, S>
 where
@@ -112,8 +112,8 @@ where
     fn is_final_round(&self) -> bool {
         self.round_num == self.config.num_rounds
     }
-    pub fn proof(&self) -> STIRRoundProof<F, M, S> {
-        STIRRoundProof {
+    pub fn proof(&self) -> STIRProofRound<F, M, S> {
+        STIRProofRound {
             coeff: self.answer_coeff.clone(),
             challenge_values: self.challenge_values.clone(),
             challenge_answers: self.challenge_answers.clone(),
