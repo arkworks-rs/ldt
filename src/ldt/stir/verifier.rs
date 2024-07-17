@@ -3,7 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{batch_inversion, FftField, PrimeField};
-use ark_poly::{Polynomial, Radix2EvaluationDomain};
+use ark_poly::{univariate::DensePolynomial, Polynomial, Radix2EvaluationDomain};
 use ark_std::marker::PhantomData;
 
 use crate::{
@@ -151,6 +151,42 @@ where
             })
             .collect()
     }
+    fn answer_evaluations(
+        coset_offsets: Vec<F>,
+        coset_offsets_inv: Vec<F>,
+        folding_factor: usize,
+        generator: F,
+        generator_inv: F,
+        interpolating_coeff: DensePolynomial<F>,
+        round_num: usize,
+        size: F,
+        size_inv: F,
+    ) -> Vec<Vec<F>> {
+        coset_offsets
+            .iter()
+            .zip(&coset_offsets_inv)
+            .map(|(coset_offset, coset_offset_inv)| match round_num {
+                0 => vec![F::ONE; folding_factor],
+                _ => {
+                    let domain = Radix2EvaluationDomain {
+                        size: folding_factor as u64,
+                        log_size_of_group: folding_factor.ilog2(),
+                        size_as_field_element: size,
+                        size_inv,
+                        group_gen: generator,
+                        group_gen_inv: generator_inv,
+                        offset: *coset_offset,
+                        offset_inv: *coset_offset_inv,
+                        offset_pow_size: coset_offset.pow([folding_factor as u64]),
+                    };
+                    interpolating_coeff
+                        .clone()
+                        .evaluate_over_domain(domain)
+                        .evals
+                }
+            })
+            .collect()
+    }
     fn common_factors(common_factor_scale: F, query_sets: Vec<Vec<F>>) -> Vec<Vec<F>> {
         query_sets
             .into_iter()
@@ -178,6 +214,42 @@ where
             })
             .collect()
     }
+    fn invert(
+        common_factors: Vec<Vec<F>>,
+        coset_offsets: Vec<F>,
+        denominators: Vec<Vec<F>>,
+        folding_factor: usize,
+        generator: F,
+        size: F,
+    ) -> (Vec<Vec<F>>, Vec<F>, Vec<Vec<F>>, F, F) {
+        let mut to_invert: Vec<F> = common_factors
+            .iter()
+            .flatten()
+            .chain(denominators.iter().flatten())
+            .chain(coset_offsets.iter())
+            .cloned()
+            .collect();
+        to_invert.push(generator);
+        to_invert.push(size);
+        batch_inversion(&mut to_invert);
+        let size_inv = to_invert.pop().unwrap();
+        let generator_inv = to_invert.pop().unwrap();
+        let coset_offsets_inv = to_invert.split_off(to_invert.len() - coset_offsets.len());
+        let common_factors_len = common_factors.len();
+        let chunked: Vec<Vec<F>> = to_invert
+            .chunks(folding_factor)
+            .map(|x| x.to_vec())
+            .collect();
+        let common_factors_inv = chunked[..common_factors_len].to_vec();
+        let denominators_inv = chunked[common_factors_len..].to_vec();
+        (
+            common_factors_inv,
+            coset_offsets_inv,
+            denominators_inv,
+            generator_inv,
+            size_inv,
+        )
+    }
     fn compute_folded_evaluations(
         &self,
         state: &STIRVerifierState<F, M, S>,
@@ -204,64 +276,36 @@ where
         let common_factors = Self::common_factors(state.comb_randomness, query_sets.clone());
 
         // Step 5: Denominators
-        let global_denominators = Self::denominators(
+        let denominators = Self::denominators(
             query_sets.clone(),
             state.quotient_set.clone(),
             state.round_num,
         );
 
-        // To invert contains a bunch of stuff offsets, generator, size, and common factors
+        // Step 6:Invert
         let size = F::from(self.config.folding_factor as u64);
-        let mut to_invert = vec![];
-        let common_factors_len = common_factors.len();
-        for common_factors in common_factors {
-            to_invert.extend(common_factors);
-        }
-        for denominators in global_denominators {
-            to_invert.extend(denominators);
-        }
-        to_invert.extend(coset_offsets.iter());
-        to_invert.push(generator);
-        to_invert.push(size);
-        batch_inversion(&mut to_invert);
-        let size_inv = to_invert.pop().unwrap();
-        let generator_inv = to_invert.pop().unwrap();
-        let coset_offsets_inv = to_invert.split_off(to_invert.len() - coset_offsets.len());
-        let chunked: Vec<Vec<_>> = to_invert
-            .chunks(self.config.folding_factor)
-            .map(|x| x.to_vec())
-            .collect();
+        let (common_factors_inv, coset_offsets_inv, denominators_inv, generator_inv, size_inv) =
+            Self::invert(
+                common_factors.clone(),
+                coset_offsets.clone(),
+                denominators,
+                self.config.folding_factor,
+                generator,
+                size,
+            );
 
-        // TODO: Could be split_off
-        let common_factors_inv = chunked[0..common_factors_len].to_vec();
-        let denominators_inv = chunked[common_factors_len..].to_vec();
-
-        let evaluations_of_ans: Vec<_> = coset_offsets
-            .iter()
-            .zip(&coset_offsets_inv)
-            .map(|(coset_offset, coset_offset_inv)| match &state.round_num {
-                0 => vec![F::ONE; self.config.folding_factor],
-                _ => {
-                    let domain = Radix2EvaluationDomain {
-                        size: self.config.folding_factor as u64,
-                        log_size_of_group: self.config.folding_factor.ilog2(),
-                        size_as_field_element: size,
-                        size_inv,
-                        group_gen: generator,
-                        group_gen_inv: generator_inv,
-                        offset: *coset_offset,
-                        offset_inv: *coset_offset_inv,
-                        offset_pow_size: coset_offset.pow([self.config.folding_factor as u64]),
-                    };
-
-                    state
-                        .interpolating_polynomial
-                        .clone()
-                        .evaluate_over_domain(domain)
-                        .evals
-                }
-            })
-            .collect();
+        // Step 7: Answer evaluations
+        let answer_evaluations = Self::answer_evaluations(
+            coset_offsets.clone(),
+            coset_offsets_inv.clone(),
+            self.config.folding_factor,
+            generator,
+            generator_inv,
+            state.interpolating_polynomial.clone(),
+            state.round_num,
+            size,
+            size_inv,
+        );
 
         let scaled_offset = state.domain_offset.pow([self.config.folding_factor as u64]);
 
@@ -272,7 +316,7 @@ where
             .zip(query_sets)
             .zip(common_factors_inv)
             .zip(denominators_inv)
-            .zip(evaluations_of_ans)
+            .zip(answer_evaluations)
             .enumerate()
             // Just restructure
             .map(
