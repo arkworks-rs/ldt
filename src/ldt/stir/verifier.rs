@@ -118,34 +118,49 @@ where
     W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
 {
-    fn compute_folded_evaluations(
-        &self,
-        verification_state: &STIRVerifierState<F, M, S>,
-        stir_randomness_indexes: Vec<usize>,
-        oracle_answers: Vec<Vec<F>>,
-    ) -> Vec<(F, F)> {
-        let scaling_factor = verification_state.domain_size / self.config.folding_factor;
-        let generator = verification_state.domain_gen.pow([scaling_factor as u64]);
-
-        // We do a single batch inversion
-        let coset_offsets: Vec<_> = stir_randomness_indexes
+    fn generator(domain_gen: F, domain_size: usize, folding_factor: usize) -> F {
+        let scaling_factor = domain_size / folding_factor;
+        domain_gen.pow([scaling_factor as u64])
+    }
+    fn coset_offsets(domain_gen: F, domain_offset: F, randomness_indices: Vec<usize>) -> Vec<F> {
+        randomness_indices
             .iter()
             .map(|stir_randomness_index| {
-                verification_state.domain_offset
-                    * verification_state
-                        .domain_gen
-                        .pow([*stir_randomness_index as u64])
+                domain_offset * domain_gen.pow([*stir_randomness_index as u64])
             })
-            .collect();
-
-        // We use this to more efficiently compute query_sets
+            .collect()
+    }
+    fn scales(folding_factor: usize, generator: F) -> Vec<F> {
         let scale = generator;
         let mut temp = F::ONE;
         let mut scales = vec![];
-        for _ in 0..self.config.folding_factor {
+        for _ in 0..folding_factor {
             scales.push(temp);
             temp *= scale;
         }
+        scales
+    }
+    fn compute_folded_evaluations(
+        &self,
+        state: &STIRVerifierState<F, M, S>,
+        randomness_indices: Vec<usize>,
+        oracle_answers: Vec<Vec<F>>,
+    ) -> Vec<(F, F)> {
+        let generator = Self::generator(
+            state.domain_gen,
+            state.domain_size,
+            self.config.folding_factor,
+        );
+
+        // We do a single batch inversion
+        let coset_offsets: Vec<F> = Self::coset_offsets(
+            state.domain_gen,
+            state.domain_offset,
+            randomness_indices.clone(),
+        );
+
+        // We use this to more efficiently compute query_sets
+        let scales = Self::scales(self.config.folding_factor, generator);
 
         let query_sets: Vec<_> = coset_offsets
             .iter()
@@ -156,28 +171,25 @@ where
             })
             .collect();
 
-        let common_factor_scale = verification_state.comb_randomness;
+        let common_factor_scale = state.comb_randomness;
 
         let global_common_factors = query_sets
             .iter()
             .map(|query_set| query_set.iter().map(|x| F::ONE - common_factor_scale * x));
 
-        let global_denominators =
-            query_sets
+        let global_denominators = query_sets.iter().map(|query_set| match &state.round_num {
+            0 => vec![F::ONE; query_set.len()],
+            _ => query_set
                 .iter()
-                .map(|query_set| match &verification_state.round_num {
-                    0 => vec![F::ONE; query_set.len()],
-                    _ => query_set
+                .map(|eval_point| {
+                    state
+                        .quotient_set
                         .iter()
-                        .map(|eval_point| {
-                            verification_state
-                                .quotient_set
-                                .iter()
-                                .map(|x| *eval_point - x)
-                                .product::<F>()
-                        })
-                        .collect::<Vec<_>>(),
-                });
+                        .map(|x| *eval_point - x)
+                        .product::<F>()
+                })
+                .collect::<Vec<_>>(),
+        });
 
         // To invert contains a bunch of stuff offsets, generator, size, and common factors
         let size = F::from(self.config.folding_factor as u64);
@@ -208,37 +220,33 @@ where
         let evaluations_of_ans: Vec<_> = coset_offsets
             .iter()
             .zip(&coset_offsets_inv)
-            .map(
-                |(coset_offset, coset_offset_inv)| match &verification_state.round_num {
-                    0 => vec![F::ONE; self.config.folding_factor],
-                    _ => {
-                        let domain = Radix2EvaluationDomain {
-                            size: self.config.folding_factor as u64,
-                            log_size_of_group: self.config.folding_factor.ilog2(),
-                            size_as_field_element: size,
-                            size_inv,
-                            group_gen: generator,
-                            group_gen_inv: generator_inv,
-                            offset: *coset_offset,
-                            offset_inv: *coset_offset_inv,
-                            offset_pow_size: coset_offset.pow([self.config.folding_factor as u64]),
-                        };
+            .map(|(coset_offset, coset_offset_inv)| match &state.round_num {
+                0 => vec![F::ONE; self.config.folding_factor],
+                _ => {
+                    let domain = Radix2EvaluationDomain {
+                        size: self.config.folding_factor as u64,
+                        log_size_of_group: self.config.folding_factor.ilog2(),
+                        size_as_field_element: size,
+                        size_inv,
+                        group_gen: generator,
+                        group_gen_inv: generator_inv,
+                        offset: *coset_offset,
+                        offset_inv: *coset_offset_inv,
+                        offset_pow_size: coset_offset.pow([self.config.folding_factor as u64]),
+                    };
 
-                        verification_state
-                            .interpolating_polynomial
-                            .clone()
-                            .evaluate_over_domain(domain)
-                            .evals
-                    }
-                },
-            )
+                    state
+                        .interpolating_polynomial
+                        .clone()
+                        .evaluate_over_domain(domain)
+                        .evals
+                }
+            })
             .collect();
 
-        let scaled_offset = verification_state
-            .domain_offset
-            .pow([self.config.folding_factor as u64]);
+        let scaled_offset = state.domain_offset.pow([self.config.folding_factor as u64]);
 
-        stir_randomness_indexes
+        randomness_indices
             .iter()
             .zip(coset_offsets)
             .zip(coset_offsets_inv)
@@ -290,7 +298,7 @@ where
                 )| {
                     // This is the point that we are querying at
                     let stir_randomness = scaled_offset
-                        * verification_state
+                        * state
                             .domain_gen
                             .pow([(self.config.folding_factor * stir_randomness_index) as u64]);
 
@@ -298,7 +306,7 @@ where
                         .into_iter()
                         .enumerate()
                         .map(|(j, x)| {
-                            verification_state.query(
+                            state.query(
                                 x,
                                 oracle_answers[i][j],
                                 common_factors_inv[j],
@@ -317,7 +325,7 @@ where
                         size_inv,
                         &f_answers,
                     )
-                    .evaluate(&verification_state.folding_randomness);
+                    .evaluate(&state.folding_randomness);
 
                     // Return the folded answer
                     (stir_randomness, folded_answer)
@@ -328,33 +336,30 @@ where
     fn round(
         &self,
         round_proof: &STIRProofRound<F, M, S>,
-        mut verification_state: STIRVerifierState<F, M, S>,
+        mut state: STIRVerifierState<F, M, S>,
     ) -> Option<STIRVerifierState<F, M, S>> {
         // Redo FS
-        verification_state.sponge_absorb(&round_proof.commitment_digest);
-        let ood_randomness =
-            verification_state.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
-        verification_state.sponge_absorb(&round_proof.out_of_domain_evaluations);
-        let comb_randomness = verification_state.sponge_squeeze();
-        let new_folding_randomness = verification_state.sponge_squeeze();
-        let scaling_factor = verification_state.domain_size / self.config.folding_factor;
+        state.sponge_absorb(&round_proof.commitment_digest);
+        let ood_randomness = state.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
+        state.sponge_absorb(&round_proof.out_of_domain_evaluations);
+        let comb_randomness = state.sponge_squeeze();
+        let new_folding_randomness = state.sponge_squeeze();
+        let scaling_factor = state.domain_size / self.config.folding_factor;
 
-        let num_repetitions = self.config.num_repetitions[verification_state.round_num];
-        let stir_randomness_indexes = dedup(
-            (0..num_repetitions)
-                .map(|_| squeeze_integer(&mut verification_state.sponge, scaling_factor)),
-        );
+        let num_repetitions = self.config.num_repetitions[state.round_num];
+        let stir_randomness_indexes =
+            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut state.sponge, scaling_factor)));
 
         // PoW verification
         if !proof_of_work_verify(
-            &mut verification_state.sponge,
-            self.config.num_proof_of_work_bits[verification_state.round_num],
+            &mut state.sponge,
+            self.config.num_proof_of_work_bits[state.round_num],
             round_proof.proof_of_work_nonce,
         ) {
             return None;
         }
 
-        let shake_randomness = verification_state.sponge_squeeze();
+        let shake_randomness = state.sponge_squeeze();
 
         // Now, we are starting to define the next function.
         // First, we need to query the previous oracle (which is either f_0 or g_i)
@@ -365,11 +370,8 @@ where
 
         // Now, for each of the selected random points, we need to compute the folding of the
         // previous oracle
-        let folded_answers = self.compute_folded_evaluations(
-            &verification_state,
-            stir_randomness_indexes,
-            oracle_answers,
-        );
+        let folded_answers =
+            self.compute_folded_evaluations(&state, stir_randomness_indexes, oracle_answers);
 
         // The quotient definining the function
         let quotient_answers: Vec<_> = ood_randomness
@@ -408,17 +410,15 @@ where
         Some(STIRVerifierState {
             comb_randomness: comb_randomness.clone(),
             config: self.config.clone(),
-            domain_gen: verification_state.domain_gen * verification_state.domain_gen,
-            domain_offset: verification_state.domain_offset
-                * verification_state.domain_offset
-                * verification_state.root_of_unity,
-            domain_size: verification_state.domain_size / 2,
+            domain_gen: state.domain_gen * state.domain_gen,
+            domain_offset: state.domain_offset * state.domain_offset * state.root_of_unity,
+            domain_size: state.domain_size / 2,
             folding_randomness: new_folding_randomness,
             interpolating_polynomial: interpolating_polynomial.clone(),
             quotient_set,
-            root_of_unity: verification_state.root_of_unity,
-            round_num: verification_state.round_num + 1,
-            sponge: verification_state.sponge,
+            root_of_unity: state.root_of_unity,
+            round_num: state.round_num + 1,
+            sponge: state.sponge,
         })
     }
 }
