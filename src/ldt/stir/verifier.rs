@@ -3,7 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{batch_inversion, FftField, PrimeField};
-use ark_poly::{univariate::DensePolynomial, Polynomial, Radix2EvaluationDomain};
+use ark_poly::{Polynomial, Radix2EvaluationDomain};
 use ark_std::marker::PhantomData;
 
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
         stir::{
             config::STIRConfig,
             proof::{STIRProof, STIRProofRound},
+            verifier_state::STIRVerifierState,
         },
         Verifier,
     },
@@ -19,21 +20,6 @@ use crate::{
     utils::{dedup, proof_of_work_verify, squeeze_integer},
     witness::Witness,
 };
-
-use super::verifier_state::STIRVerifierState;
-
-#[derive(Debug)]
-pub struct VirtualFunction<F: FftField> {
-    pub comb_randomness: F,
-    pub interpolating_polynomial: DensePolynomial<F>,
-    pub quotient_set: Vec<F>,
-}
-
-#[derive(Debug)]
-pub enum OracleType<F: FftField> {
-    Initial,
-    Virtual(VirtualFunction<F>),
-}
 
 pub struct STIRVerifier<F, M, S, W>
 where
@@ -97,8 +83,9 @@ where
         // Now, we sample the last points that we want to check consisntency at
         let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
         let scaling_factor = state.domain_size / self.config.folding_factor;
-        let final_randomness_indexes =
-            dedup((0..final_repetitions).map(|_| squeeze_integer(&mut state.sponge, scaling_factor)));
+        let final_randomness_indexes = dedup(
+            (0..final_repetitions).map(|_| squeeze_integer(&mut state.sponge, scaling_factor)),
+        );
 
         if !proof_of_work_verify(
             &mut state.sponge,
@@ -112,11 +99,8 @@ where
         // lookup
         let oracle_answers = proof.rounds.last().unwrap().challenge_values.clone();
 
-        let folded_answers = self.compute_folded_evaluations(
-            &state,
-            final_randomness_indexes,
-            oracle_answers,
-        );
+        let folded_answers =
+            self.compute_folded_evaluations(&state, final_randomness_indexes, oracle_answers);
 
         folded_answers
             .into_iter()
@@ -225,9 +209,9 @@ where
             .iter()
             .zip(&coset_offsets_inv)
             .map(
-                |(coset_offset, coset_offset_inv)| match &verification_state.oracle {
-                    OracleType::Initial => vec![F::ONE; self.config.folding_factor],
-                    OracleType::Virtual(virtual_function) => {
+                |(coset_offset, coset_offset_inv)| match &verification_state.round_num {
+                    0 => vec![F::ONE; self.config.folding_factor],
+                    _ => {
                         let domain = Radix2EvaluationDomain {
                             size: self.config.folding_factor as u64,
                             log_size_of_group: self.config.folding_factor.ilog2(),
@@ -240,7 +224,7 @@ where
                             offset_pow_size: coset_offset.pow([self.config.folding_factor as u64]),
                         };
 
-                        virtual_function
+                        verification_state
                             .interpolating_polynomial
                             .clone()
                             .evaluate_over_domain(domain)
@@ -348,15 +332,18 @@ where
     ) -> Option<STIRVerifierState<F, M, S>> {
         // Redo FS
         verification_state.sponge_absorb(&round_proof.commitment_digest);
-        let ood_randomness = verification_state.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
+        let ood_randomness =
+            verification_state.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
         verification_state.sponge_absorb(&round_proof.out_of_domain_evaluations);
         let comb_randomness = verification_state.sponge_squeeze();
         let new_folding_randomness = verification_state.sponge_squeeze();
         let scaling_factor = verification_state.domain_size / self.config.folding_factor;
 
         let num_repetitions = self.config.num_repetitions[verification_state.round_num];
-        let stir_randomness_indexes =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut verification_state.sponge, scaling_factor)));
+        let stir_randomness_indexes = dedup(
+            (0..num_repetitions)
+                .map(|_| squeeze_integer(&mut verification_state.sponge, scaling_factor)),
+        );
 
         // PoW verification
         if !proof_of_work_verify(
@@ -428,11 +415,6 @@ where
             domain_size: verification_state.domain_size / 2,
             folding_randomness: new_folding_randomness,
             interpolating_polynomial: interpolating_polynomial.clone(),
-            oracle: OracleType::Virtual(VirtualFunction {
-                comb_randomness,
-                quotient_set: quotient_set.clone(),
-                interpolating_polynomial,
-            }),
             quotient_set,
             root_of_unity: verification_state.root_of_unity,
             round_num: verification_state.round_num + 1,

@@ -7,7 +7,7 @@ use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain}
 
 use crate::{domain::Domain, poly_utils};
 
-use super::{config::STIRConfig, verifier::OracleType};
+use super::config::STIRConfig;
 
 pub struct STIRVerifierState<F, M, S>
 where
@@ -22,7 +22,6 @@ where
     pub domain_size: usize,
     pub folding_randomness: F,
     pub interpolating_polynomial: DensePolynomial<F>,
-    pub oracle: OracleType<F>,
     pub quotient_set: Vec<F>,
     pub root_of_unity: F,
     pub round_num: usize,
@@ -54,7 +53,6 @@ where
             domain_size,
             folding_randomness,
             interpolating_polynomial: DensePolynomial::from_coefficients_vec(vec![]),
-            oracle: OracleType::Initial,
             quotient_set: vec![],
             root_of_unity: domain_gen,
             round_num: 0,
@@ -79,19 +77,19 @@ where
         denom_hint: F,
         ans_eval: F,
     ) -> F {
-        match &self.oracle {
-            OracleType::Initial => value_of_prev_oracle, // In case this is the initial function, we just return the value of the previous oracle
-            OracleType::Virtual(virtual_function) => {
-                let num_terms = virtual_function.quotient_set.len();
+        match &self.round_num {
+            0 => value_of_prev_oracle, // In case this is the initial function, we just return the value of the previous oracle
+            _ => {
+                let num_terms = self.quotient_set.len();
                 let quotient_evaluation = poly_utils::quotient::quotient_with_hint(
                     value_of_prev_oracle,
                     evaluation_point,
-                    &virtual_function.quotient_set,
+                    &self.quotient_set,
                     denom_hint,
                     ans_eval,
                 );
 
-                let common_factor = evaluation_point * virtual_function.comb_randomness;
+                let common_factor = evaluation_point * self.comb_randomness;
 
                 let scale_factor = if common_factor != F::ONE {
                     (F::ONE - common_factor.pow([(num_terms + 1) as u64])) * common_factors_inverse
