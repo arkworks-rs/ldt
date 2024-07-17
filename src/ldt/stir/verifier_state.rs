@@ -59,6 +59,18 @@ where
             sponge,
         }
     }
+    pub fn coset_offsets(&self, randomness_indices: Vec<usize>) -> Vec<F> {
+        randomness_indices
+            .iter()
+            .map(|stir_randomness_index| {
+                self.domain_offset * self.domain_gen.pow([*stir_randomness_index as u64])
+            })
+            .collect()
+    }
+    pub fn generator(&self) -> F {
+        let scaling_factor = self.domain_size / self.config.folding_factor;
+        self.domain_gen.pow([scaling_factor as u64])
+    }
     pub fn sponge_absorb(&mut self, element: impl Absorb) {
         self.sponge.absorb(&element);
     }

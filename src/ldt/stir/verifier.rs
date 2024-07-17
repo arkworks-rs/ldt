@@ -119,18 +119,6 @@ where
     W: Witness<F, M, MerkleConfig = M> + Clone,
     W::ChallengeAnswers: Clone,
 {
-    fn generator(domain_gen: F, domain_size: usize, folding_factor: usize) -> F {
-        let scaling_factor = domain_size / folding_factor;
-        domain_gen.pow([scaling_factor as u64])
-    }
-    fn coset_offsets(domain_gen: F, domain_offset: F, randomness_indices: Vec<usize>) -> Vec<F> {
-        randomness_indices
-            .iter()
-            .map(|stir_randomness_index| {
-                domain_offset * domain_gen.pow([*stir_randomness_index as u64])
-            })
-            .collect()
-    }
     fn scales(folding_factor: usize, generator: F) -> Vec<F> {
         let scale = generator;
         let mut temp = F::ONE;
@@ -332,17 +320,11 @@ where
         oracle_answers: Vec<Vec<F>>,
     ) -> Vec<(F, F)> {
         // Step 1: Generator
-        let generator = Self::generator(
-            state.domain_gen,
-            state.domain_size,
-            self.config.folding_factor,
-        );
+        let generator = state.generator();
+
         // Step 2: Coset offsets
-        let coset_offsets: Vec<F> = Self::coset_offsets(
-            state.domain_gen,
-            state.domain_offset,
-            randomness_indices.clone(),
-        );
+        let coset_offsets: Vec<F> = state.coset_offsets(randomness_indices.clone());
+
         // Step 3: Query sets
         let query_sets: Vec<Vec<F>> =
             Self::query_sets(coset_offsets.clone(), self.config.folding_factor, generator);
