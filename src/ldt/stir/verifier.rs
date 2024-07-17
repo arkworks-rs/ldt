@@ -83,25 +83,6 @@ where
 
         // Step 2: Recompute
         let mut state = STIRVerifierState::new(self.config.clone(), claim.commitment_digest());
-        // let mut sponge = S::new(&self.config.sponge_config);
-        // sponge.absorb(&claim.commitment_digest());
-        // let folding_randomness = sponge.squeeze_field_elements(1)[0];
-
-        // let domain =
-        //     Domain::<F>::new(self.config.starting_degree, self.config.starting_rate).unwrap();
-
-        // let domain_gen = domain.element(1);
-        // let domain_size = domain.size();
-
-        // let mut verification_state = VerificationState {
-        //     oracle: OracleType::Initial,
-        //     domain_gen,
-        //     domain_size,
-        //     domain_offset: F::ONE,
-        //     root_of_unity: domain_gen,
-        //     num_round: 0,
-        //     folding_randomness,
-        // };
 
         for round_proof in &proof.rounds {
             if !round_proof.is_final_round {
@@ -191,10 +172,7 @@ where
             })
             .collect();
 
-        let common_factor_scale = match &verification_state.oracle {
-            OracleType::Initial => F::ZERO,
-            OracleType::Virtual(virtual_function) => virtual_function.comb_randomness,
-        };
+        let common_factor_scale = verification_state.comb_randomness;
 
         let global_common_factors = query_sets
             .iter()
@@ -203,12 +181,12 @@ where
         let global_denominators =
             query_sets
                 .iter()
-                .map(|query_set| match &verification_state.oracle {
-                    OracleType::Initial => vec![F::ONE; query_set.len()],
-                    OracleType::Virtual(virtual_function) => query_set
+                .map(|query_set| match &verification_state.round_num {
+                    0 => vec![F::ONE; query_set.len()],
+                    _ => query_set
                         .iter()
                         .map(|eval_point| {
-                            virtual_function
+                            verification_state
                                 .quotient_set
                                 .iter()
                                 .map(|x| *eval_point - x)
@@ -459,22 +437,6 @@ where
             root_of_unity: verification_state.root_of_unity,
             round_num: verification_state.round_num + 1,
             sponge: verification_state.sponge,
-
-
-            // oracle: OracleType::Virtual(VirtualFunction {
-            //     comb_randomness,
-            //     quotient_set,
-            //     interpolating_polynomial,
-            // }),
-            // // TODO: We can optimize
-            // domain_size: verification_state.domain_size / 2,
-            // domain_gen: verification_state.domain_gen * verification_state.domain_gen,
-            // domain_offset: verification_state.domain_offset
-            //     * verification_state.domain_offset
-            //     * verification_state.root_of_unity,
-            // root_of_unity: verification_state.root_of_unity,
-            // folding_randomness: new_folding_randomness,
-            // num_round: verification_state.num_round + 1,
         })
     }
 }

@@ -47,7 +47,7 @@ where
         let domain_gen = domain.element(1);
         let domain_size = domain.size();
         Self {
-            comb_randomness: F::one(),
+            comb_randomness: F::zero(),
             config,
             domain_gen,
             domain_offset: F::one(),
