@@ -15,9 +15,9 @@ pub struct STIRProofRound<F: Field, M: MerkleConfig, S: CryptographicSponge> {
     pub config: STIRConfig<M, S>,
     pub is_final_round: bool,
     pub last_round_commitment_digest: M::InnerDigest,
-    pub out_of_domain_evaluations: Vec<F>, // Note: empty when is_final_round = true
+    pub out_of_domain_evaluations: Vec<F>,
     pub proof_of_work_nonce: Option<usize>,
-    pub shake_coeff: DensePolynomial<F>, // Note: empty when is_final_round = true
+    pub shake_coeff: DensePolynomial<F>,
 }
 
 impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProofRound<F, M, S> {

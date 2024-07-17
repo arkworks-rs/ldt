@@ -13,7 +13,7 @@ use crate::{
 
 use super::{config::STIRConfig, proof::STIRProofRound};
 
-pub struct STIRRound<F, M, S>
+pub struct STIRProverState<F, M, S>
 where
     F: FftField,
     M: MerkleConfig,
@@ -43,7 +43,7 @@ where
     witness_coeff: DensePolynomial<F>,
 }
 
-impl<F, M, S> STIRRound<F, M, S>
+impl<F, M, S> STIRProverState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
@@ -249,7 +249,7 @@ where
     }
 }
 
-impl<F, M, S> Iterator for STIRRound<F, M, S>
+impl<F, M, S> Iterator for STIRProverState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
@@ -302,7 +302,7 @@ where
     }
 }
 
-impl<F, M, S> Clone for STIRRound<F, M, S>
+impl<F, M, S> Clone for STIRProverState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
     M: MerkleConfig<Leaf = Vec<F>>,
@@ -311,7 +311,7 @@ where
     S::Config: Clone,
 {
     fn clone(&self) -> Self {
-        STIRRound {
+        STIRProverState {
             answer_coeff: self.answer_coeff.clone(),
             domain: self.domain.clone(),
             challenge_answers: self.challenge_answers.clone(),

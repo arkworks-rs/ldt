@@ -11,7 +11,7 @@ use crate::{
         stir::{
             config::STIRConfig,
             proof::{STIRProof, STIRProofRound},
-            round::STIRRound,
+            prover_state::STIRProverState,
         },
         Prover,
     },
@@ -58,7 +58,7 @@ where
     fn prove(&self, witness: &W) -> Self::Proof {
         assert!(witness.coeff().degree() < self.config.starting_degree);
 
-        let rounds: Vec<STIRProofRound<F, M, S>> = STIRRound::<F, M, S>::new(
+        let rounds: Vec<STIRProofRound<F, M, S>> = STIRProverState::<F, M, S>::new(
             witness.domain(),
             witness.commitment(),
             witness.committed_values(),

@@ -2,8 +2,9 @@ pub mod config;
 pub mod ldt;
 pub mod proof;
 pub mod prover;
-pub mod round;
+pub mod prover_state;
 pub mod verifier;
+pub mod verifier_state;
 
 #[cfg(test)]
 mod tests {

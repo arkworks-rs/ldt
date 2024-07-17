@@ -127,7 +127,7 @@ where
             return false;
         }
 
-        // Step 2: recompute
+        // Step 2: Recompute
         let mut sponge = S::new(&self.config.sponge_config);
         sponge.absorb(&claim.commitment_digest());
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
@@ -149,7 +149,7 @@ where
         };
 
         for round_proof in &proof.rounds {
-            if round_proof.is_final_round == false {
+            if !round_proof.is_final_round {
                 let round_result = self.round(&mut sponge, round_proof, verification_state);
                 if round_result.is_none() {
                     return false;
