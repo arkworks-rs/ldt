@@ -3,7 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
-use ark_poly::EvaluationDomain;
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain};
 
 use crate::{domain::Domain, poly_utils};
 
@@ -15,12 +15,15 @@ where
     M: MerkleConfig,
     S: CryptographicSponge,
 {
+    pub comb_randomness: F,
     pub config: STIRConfig<M, S>,
     pub domain_gen: F,
     pub domain_offset: F,
     pub domain_size: usize,
     pub folding_randomness: F,
+    pub interpolating_polynomial: DensePolynomial<F>,
     pub oracle: OracleType<F>,
+    pub quotient_set: Vec<F>,
     pub root_of_unity: F,
     pub round_num: usize,
     pub sponge: S,
@@ -44,12 +47,15 @@ where
         let domain_gen = domain.element(1);
         let domain_size = domain.size();
         Self {
+            comb_randomness: F::one(),
             config,
             domain_gen,
             domain_offset: F::one(),
             domain_size,
             folding_randomness,
+            interpolating_polynomial: DensePolynomial::from_coefficients_vec(vec![]),
             oracle: OracleType::Initial,
+            quotient_set: vec![],
             root_of_unity: domain_gen,
             round_num: 0,
             sponge,

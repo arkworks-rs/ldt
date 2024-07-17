@@ -3,11 +3,10 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{batch_inversion, FftField, PrimeField};
-use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial, Radix2EvaluationDomain};
+use ark_poly::{univariate::DensePolynomial, Polynomial, Radix2EvaluationDomain};
 use ark_std::marker::PhantomData;
 
 use crate::{
-    domain::Domain,
     ldt::{
         stir::{
             config::STIRConfig,
@@ -34,53 +33,6 @@ pub struct VirtualFunction<F: FftField> {
 pub enum OracleType<F: FftField> {
     Initial,
     Virtual(VirtualFunction<F>),
-}
-
-#[derive(Debug)]
-pub struct VerificationState<F: FftField> {
-    oracle: OracleType<F>,
-    domain_gen: F,
-    domain_size: usize,
-    domain_offset: F,
-    root_of_unity: F,
-    folding_randomness: F,
-    num_round: usize,
-}
-impl<F: FftField> VerificationState<F> {
-    // Now, I need to query f_i at a given point.
-    // This induces some query to the previous oracle, whose answer I get
-    pub fn query(
-        &self,
-        evaluation_point: F,
-        value_of_prev_oracle: F,
-        common_factors_inverse: F,
-        denom_hint: F,
-        ans_eval: F,
-    ) -> F {
-        match &self.oracle {
-            OracleType::Initial => value_of_prev_oracle, // In case this is the initial function, we just return the value of the previous oracle
-            OracleType::Virtual(virtual_function) => {
-                let num_terms = virtual_function.quotient_set.len();
-                let quotient_evaluation = poly_utils::quotient::quotient_with_hint(
-                    value_of_prev_oracle,
-                    evaluation_point,
-                    &virtual_function.quotient_set,
-                    denom_hint,
-                    ans_eval,
-                );
-
-                let common_factor = evaluation_point * virtual_function.comb_randomness;
-
-                let scale_factor = if common_factor != F::ONE {
-                    (F::ONE - common_factor.pow([(num_terms + 1) as u64])) * common_factors_inverse
-                } else {
-                    F::from((num_terms + 1) as u64)
-                };
-
-                quotient_evaluation * scale_factor
-            }
-        }
-    }
 }
 
 pub struct STIRVerifier<F, M, S, W>
@@ -489,6 +441,7 @@ where
             .collect::<Vec<_>>();
 
         Some(STIRVerifierState {
+            comb_randomness: comb_randomness.clone(),
             config: self.config.clone(),
             domain_gen: verification_state.domain_gen * verification_state.domain_gen,
             domain_offset: verification_state.domain_offset
@@ -496,11 +449,13 @@ where
                 * verification_state.root_of_unity,
             domain_size: verification_state.domain_size / 2,
             folding_randomness: new_folding_randomness,
+            interpolating_polynomial: interpolating_polynomial.clone(),
             oracle: OracleType::Virtual(VirtualFunction {
                 comb_randomness,
-                quotient_set,
+                quotient_set: quotient_set.clone(),
                 interpolating_polynomial,
             }),
+            quotient_set,
             root_of_unity: verification_state.root_of_unity,
             round_num: verification_state.round_num + 1,
             sponge: verification_state.sponge,
