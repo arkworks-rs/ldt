@@ -125,33 +125,26 @@ where
         // Step 3: more randomness
         let shake_randomness = state.sponge_squeeze();
 
-        // Step 4: for random indices compute folding of previous oracle TODO: check indices?
-        let folded_answers =
-            state.folded_evaluations(randomness_indices, round_proof.challenge_values.clone());
+        // Step 4: quotient answers
+        let quotient_answers: Vec<(F, F)> = state.quotient_answers(
+            &round_proof.challenge_values,
+            &out_of_domain_randomness,
+            &round_proof.out_of_domain_evaluations,
+            &randomness_indices,
+        );
 
-        // The quotient definining the function
-        let quotient_answers: Vec<_> = out_of_domain_randomness
-            .into_iter()
-            .zip(&round_proof.out_of_domain_evaluations)
-            .map(|(alpha, beta)| (alpha, *beta))
-            .chain(folded_answers)
-            .collect();
-        let interpolating_polynomial = round_proof.coeff.clone();
-
-        let ans_eval = interpolating_polynomial.evaluate(&shake_randomness);
-        let shake_eval = round_proof.shake_coeff.evaluate(&shake_randomness);
-
-        let mut denoms: Vec<_> = quotient_answers
+        // TODO: This maybe should be better
+        let ans_eval = round_proof.coeff.evaluate(&shake_randomness);
+        let mut denominators: Vec<F> = quotient_answers
             .iter()
             .map(|(x, _)| shake_randomness - x)
             .collect();
-
-        batch_inversion(&mut denoms);
-        // TODO: This maybe should be better
+        batch_inversion(&mut denominators);
+        let shake_eval = round_proof.shake_coeff.evaluate(&shake_randomness);
         if shake_eval
             != quotient_answers
                 .iter()
-                .zip(denoms)
+                .zip(denominators)
                 .map(|((_, y), d)| (ans_eval - y) * d)
                 .sum()
         {
@@ -165,11 +158,8 @@ where
             domain_offset: state.domain_offset * state.domain_offset * state.root_of_unity,
             domain_size: state.domain_size / 2,
             folding_randomness: folding_randomness,
-            interpolating_polynomial: interpolating_polynomial.clone(),
-            quotient_set: quotient_answers
-                .into_iter()
-                .map(|(x, _)| x)
-                .collect::<Vec<_>>(),
+            interpolating_polynomial: round_proof.coeff.clone(),
+            quotient_set: quotient_answers.into_iter().map(|(x, _)| x).collect(),
             root_of_unity: state.root_of_unity,
             round_num: state.round_num + 1,
             sponge: state.sponge,

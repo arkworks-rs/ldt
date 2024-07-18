@@ -379,6 +379,25 @@ where
             })
             .collect()
     }
+    pub fn quotient_answers(
+        &self,
+        challenge_values: &Vec<Vec<F>>,
+        out_of_domain_randomness: &Vec<F>,
+        out_of_domain_evaluations: &Vec<F>,
+        randomness_indices: &Vec<usize>,
+    ) -> Vec<(F, F)> {
+        // Step 1: for random indices compute folding of previous oracle TODO: check indices?
+        let folded_answers: Vec<(F, F)> =
+            self.folded_evaluations(randomness_indices.clone(), challenge_values.clone());
+
+        // Step 2:
+        out_of_domain_randomness
+            .into_iter()
+            .zip(out_of_domain_evaluations)
+            .map(|(alpha, beta)| (*alpha, *beta))
+            .chain(folded_answers)
+            .collect()
+    }
     pub fn randomness_indices(&mut self) -> Vec<usize> {
         let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
         let scaling_factor = self.domain_size / self.config.folding_factor;
