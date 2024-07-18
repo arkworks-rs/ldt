@@ -23,19 +23,19 @@ where
     M: MerkleConfig,
     S: CryptographicSponge,
 {
-    pub comb_randomness: F,
-    pub config: STIRConfig<M, S>,
-    pub domain_gen: F,
-    pub domain_offset: F,
-    pub domain_size: usize,
-    pub folding_randomness: F,
-    pub interpolating_coeff: DensePolynomial<F>,
-    pub is_verified: bool, // NOTE: this kinda like corresponds to successful "transition" from state n - 1 --> n, hence for n = 0 set true
-    pub proof: STIRProof<F, M, S>,
-    pub quotient_set: Vec<F>,
-    pub root_of_unity: F,
-    pub round_num: usize,
-    pub sponge: S,
+    comb_randomness: F,
+    config: STIRConfig<M, S>,
+    domain_gen: F,
+    domain_offset: F,
+    domain_size: usize,
+    folding_randomness: F,
+    interpolating_coeff: DensePolynomial<F>,
+    is_verified: bool, // NOTE: this kinda like corresponds to successful "transition" from state n - 1 --> n, hence for n = 0 set true
+    proof: STIRProof<F, M, S>,
+    quotient_set: Vec<F>,
+    root_of_unity: F,
+    round_num: usize,
+    sponge: S,
 }
 
 impl<F, M, S> STIRVerifierState<F, M, S>
@@ -214,7 +214,7 @@ where
             )
             .collect()
     }
-    pub fn folded_evaluations(
+    fn folded_evaluations(
         &self,
         randomness_indices: Vec<usize>,
         oracle_answers: Vec<Vec<F>>,
@@ -318,6 +318,9 @@ where
             size_inv,
         )
     }
+    pub fn is_verified(&self) -> bool {
+        self.is_verified
+    }
     // TODO: Nuke this
     fn query(
         &self,
@@ -362,7 +365,7 @@ where
             })
             .collect()
     }
-    pub fn quotient_answers(
+    fn quotient_answers(
         &self,
         challenge_values: &Vec<Vec<F>>,
         out_of_domain_randomness: &Vec<F>,
@@ -381,7 +384,7 @@ where
             .chain(folded_answers)
             .collect()
     }
-    pub fn randomness(
+    fn randomness(
         &mut self,
         commitment_digest: M::InnerDigest,
         out_of_domain_evaluations: Vec<F>,
@@ -407,23 +410,23 @@ where
         }
         scales
     }
-    pub fn sponge_absorb(&mut self, element: impl Absorb) {
+    fn sponge_absorb(&mut self, element: impl Absorb) {
         self.sponge.absorb(&element);
     }
-    pub fn sponge_squeeze(&mut self) -> F {
+    fn sponge_squeeze(&mut self) -> F {
         self.sponge.squeeze_field_elements(1)[0]
     }
-    pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
+    fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
         self.sponge.squeeze_field_elements(num_elements)
     }
-    pub fn verify_folded_answers(&self, randomness_indices: Vec<usize>) -> bool {
+    fn verify_folded_answers(&self, randomness_indices: Vec<usize>) -> bool {
         let oracle_answers = self.proof.rounds.last().unwrap().challenge_values.clone();
         let folded_answers = self.folded_evaluations(randomness_indices, oracle_answers);
         folded_answers
             .into_iter()
             .all(|(point, value)| self.proof.rounds.last().unwrap().coeff.evaluate(&point) == value)
     }
-    pub fn verify_proof_of_work(&mut self, proof: &STIRProof<F, M, S>) -> bool {
+    fn verify_proof_of_work(&mut self, proof: &STIRProof<F, M, S>) -> bool {
         proof_of_work_verify(
             &mut self.sponge,
             self.config.num_proof_of_work_bits[self.config.num_rounds],
@@ -434,7 +437,7 @@ where
                 .proof_of_work_nonce,
         )
     }
-    pub fn verify_quotient_answers(
+    fn verify_quotient_answers(
         &mut self,
         out_of_domain_randomness: &Vec<F>,
         randomness_indices: &Vec<usize>,

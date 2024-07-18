@@ -61,6 +61,6 @@ where
             proof.clone(),
         )
         .into_iter()
-        .all(|state| state.is_verified == true)
+        .all(|state| state.is_verified() == true)
     }
 }
