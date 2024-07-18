@@ -33,7 +33,7 @@ mod tests {
 
     #[test]
     fn test_stir_ldt() {
-        // get ready
+        // config
         let mut rng = test_rng();
         let (merkle_leaf_hash_param, merkle_two_to_one_param) =
             merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
@@ -50,9 +50,12 @@ mod tests {
             starting_rate: 8,
             stopping_degree: 8,
         };
+
+        // initialize
         let (prover, verifier) =
             STIR::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(config.clone());
 
+        // random witness
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
             SingleWitness::new(SingleWitnessArgument {
                 coeff: DensePolynomial::<Field256>::rand(config.starting_degree - 1, &mut rng),

@@ -24,7 +24,7 @@ where
     config: DirectConfig<M, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<M>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
     _witness: PhantomData<W>,
 }
 
@@ -54,7 +54,7 @@ where
             config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<M>,
-            _sponge_config: PhantomData::<S>,
+            _sponge: PhantomData::<S>,
             _witness: PhantomData::<W>,
         }
     }

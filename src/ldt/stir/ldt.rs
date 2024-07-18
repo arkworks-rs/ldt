@@ -1,10 +1,3 @@
-use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, MerkleTree},
-    sponge::{Absorb, CryptographicSponge},
-};
-use ark_ff::{FftField, PrimeField};
-use ark_std::marker::PhantomData;
-
 use crate::{
     ldt::{
         stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
@@ -12,6 +5,12 @@ use crate::{
     },
     witness::Witness,
 };
+use ark_crypto_primitives::{
+    merkle_tree::{Config as MerkleConfig, MerkleTree},
+    sponge::{Absorb, CryptographicSponge},
+};
+use ark_ff::{FftField, PrimeField};
+use ark_std::marker::PhantomData;
 
 pub struct STIR<F, M, S, W>
 where
@@ -22,7 +21,7 @@ where
 {
     _field: PhantomData<F>,
     _merkle_config: PhantomData<M>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
     _witness: PhantomData<W>,
 }
 

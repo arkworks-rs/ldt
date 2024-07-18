@@ -29,7 +29,7 @@ where
     verifier_config: FRIConfig<M, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
 }
 
 impl<F, M, S, W> Verifier<F> for FRIVerifier<F, M, S, W>
@@ -48,7 +48,7 @@ where
             verifier_config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<W::MerkleConfig>,
-            _sponge_config: PhantomData::<S>,
+            _sponge: PhantomData::<S>,
         }
     }
     fn verify(&self, claim: &Self::Statement, proof: &Self::Proof) -> bool {

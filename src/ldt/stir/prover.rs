@@ -29,7 +29,7 @@ where
     config: STIRConfig<W::MerkleConfig, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<W::MerkleConfig>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
 }
 
 impl<F, M, S, W> Prover<F> for STIRProver<F, M, S, W>
@@ -52,7 +52,7 @@ where
             config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<M>,
-            _sponge_config: PhantomData::<S>,
+            _sponge: PhantomData::<S>,
         }
     }
     fn prove(&self, witness: &W) -> Self::Proof {

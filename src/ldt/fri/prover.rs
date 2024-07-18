@@ -29,7 +29,7 @@ where
     prover_config: FRIConfig<M, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<M>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
     _witness: PhantomData<W>,
 }
 
@@ -53,7 +53,7 @@ where
             prover_config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<W::MerkleConfig>,
-            _sponge_config: PhantomData::<S>,
+            _sponge: PhantomData::<S>,
             _witness: PhantomData::<W>,
         }
     }

@@ -18,7 +18,7 @@ use super::proof::DirectProof;
 pub struct DirectLDT<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Witness<F, M>> {
     _field: PhantomData<F>,
     _merkle_config: PhantomData<M>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
     _witness: PhantomData<W>,
 }
 impl<F, M, S, W> LowDegreeTest<F> for DirectLDT<F, M, S, W>

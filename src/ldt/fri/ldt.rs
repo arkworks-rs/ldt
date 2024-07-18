@@ -22,7 +22,7 @@ where
 {
     _field: PhantomData<F>,
     _merkle_config: PhantomData<M>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
     _witness: PhantomData<W>,
 }
 

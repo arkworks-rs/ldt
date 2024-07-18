@@ -25,7 +25,7 @@ where
     config: DirectConfig<M, S>,
     _field: PhantomData<F>,
     _merkle_config: PhantomData<M>,
-    _sponge_config: PhantomData<S>,
+    _sponge: PhantomData<S>,
     _witness: PhantomData<W>,
 }
 impl<F, M, S, W> Verifier<F> for DirectVerifier<F, M, S, W>
@@ -46,7 +46,7 @@ where
             config,
             _field: PhantomData::<F>,
             _merkle_config: PhantomData::<M>,
-            _sponge_config: PhantomData::<S>,
+            _sponge: PhantomData::<S>,
             _witness: PhantomData::<W>,
         }
     }

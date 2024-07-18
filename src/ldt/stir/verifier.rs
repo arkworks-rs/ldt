@@ -3,6 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
+use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 
 use crate::{
@@ -51,9 +52,9 @@ where
         }
     }
     fn verify(&self, claim: &Self::Statement, proof: &Self::Proof) -> bool {
-        // if proof.final_round_proof.coeff.degree() + 1 > self.config.stopping_degree { // TODO: fix this
-        //     return false;
-        // }
+        if proof.rounds.last().unwrap().coeff.degree() + 1 > self.config.stopping_degree {
+            return false;
+        }
 
         STIRVerifierState::new(
             self.config.clone(),
