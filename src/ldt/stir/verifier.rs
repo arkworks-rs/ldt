@@ -2,7 +2,7 @@ use ark_crypto_primitives::{
     merkle_tree::Config as MerkleConfig,
     sponge::{Absorb, CryptographicSponge},
 };
-use ark_ff::{batch_inversion, FftField, PrimeField};
+use ark_ff::{FftField, PrimeField};
 use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 
@@ -66,7 +66,11 @@ where
         }
 
         // Step 2: Recompute
-        let mut state = STIRVerifierState::new(self.config.clone(), claim.commitment_digest());
+        let mut state = STIRVerifierState::new(
+            self.config.clone(),
+            claim.commitment_digest(),
+            proof.clone(),
+        );
         for round_proof in &proof.rounds {
             if !round_proof.is_final_round {
                 let round_result = self.round(proof, round_proof, state);
@@ -133,21 +137,8 @@ where
             &randomness_indices,
         );
 
-        // TODO: This maybe should be better
-        let ans_eval = round_proof.coeff.evaluate(&shake_randomness);
-        let mut denominators: Vec<F> = quotient_answers
-            .iter()
-            .map(|(x, _)| shake_randomness - x)
-            .collect();
-        batch_inversion(&mut denominators);
-        let shake_eval = round_proof.shake_coeff.evaluate(&shake_randomness);
-        if shake_eval
-            != quotient_answers
-                .iter()
-                .zip(denominators)
-                .map(|((_, y), d)| (ans_eval - y) * d)
-                .sum()
-        {
+        // Step 5: verify quotient answers
+        if !round_proof.verify_quotient_answers(&quotient_answers, &shake_randomness) {
             return None;
         }
 
@@ -158,7 +149,8 @@ where
             domain_offset: state.domain_offset * state.domain_offset * state.root_of_unity,
             domain_size: state.domain_size / 2,
             folding_randomness: folding_randomness,
-            interpolating_polynomial: round_proof.coeff.clone(),
+            interpolating_coeff: round_proof.coeff.clone(),
+            proof: state.proof,
             quotient_set: quotient_answers.into_iter().map(|(x, _)| x).collect(),
             root_of_unity: state.root_of_unity,
             round_num: state.round_num + 1,

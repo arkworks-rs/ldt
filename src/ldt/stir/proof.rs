@@ -2,8 +2,8 @@ use ark_crypto_primitives::{
     merkle_tree::{Config as MerkleConfig, Path},
     sponge::CryptographicSponge,
 };
-use ark_ff::Field;
-use ark_poly::univariate::DensePolynomial;
+use ark_ff::{batch_inversion, Field};
+use ark_poly::{univariate::DensePolynomial, Polynomial};
 
 use super::config::STIRConfig;
 
@@ -63,6 +63,29 @@ impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProof
             {
                 return false;
             }
+        }
+        true
+    }
+    pub fn verify_quotient_answers(
+        &self,
+        quotient_answers: &Vec<(F, F)>,
+        shake_randomness: &F,
+    ) -> bool {
+        let ans_eval = self.coeff.evaluate(&shake_randomness);
+        let mut denominators: Vec<F> = quotient_answers
+            .iter()
+            .map(|(x, _)| *shake_randomness - x)
+            .collect();
+        batch_inversion(&mut denominators);
+        let shake_eval = self.shake_coeff.evaluate(&shake_randomness);
+        if shake_eval
+            != quotient_answers
+                .iter()
+                .zip(denominators)
+                .map(|((_, y), d)| (ans_eval - y) * d)
+                .sum()
+        {
+            return false;
         }
         true
     }

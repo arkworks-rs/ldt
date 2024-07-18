@@ -29,7 +29,8 @@ where
     pub domain_offset: F,
     pub domain_size: usize,
     pub folding_randomness: F,
-    pub interpolating_polynomial: DensePolynomial<F>,
+    pub interpolating_coeff: DensePolynomial<F>,
+    pub proof: STIRProof<F, M, S>,
     pub quotient_set: Vec<F>,
     pub root_of_unity: F,
     pub round_num: usize,
@@ -44,7 +45,11 @@ where
     S: CryptographicSponge,
     S::Config: Clone,
 {
-    pub fn new(config: STIRConfig<M, S>, commitment_digest: M::InnerDigest) -> Self {
+    pub fn new(
+        config: STIRConfig<M, S>,
+        commitment_digest: M::InnerDigest,
+        proof: STIRProof<F, M, S>,
+    ) -> Self {
         let mut sponge = S::new(&config.sponge_config);
         sponge.absorb(&commitment_digest);
         let folding_randomness = sponge.squeeze_field_elements(1)[0];
@@ -60,7 +65,8 @@ where
             domain_offset: F::one(),
             domain_size,
             folding_randomness,
-            interpolating_polynomial: DensePolynomial::from_coefficients_vec(vec![]),
+            proof,
+            interpolating_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             quotient_set: vec![],
             root_of_unity: domain_gen,
             round_num: 0,
@@ -247,7 +253,7 @@ where
             coset_offsets_inv.clone(),
             generator,
             generator_inv,
-            self.interpolating_polynomial.clone(),
+            self.interpolating_coeff.clone(),
             size,
             size_inv,
         );
