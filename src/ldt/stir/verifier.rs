@@ -98,19 +98,18 @@ where
         round_proof: &STIRProofRound<F, M, S>,
         mut state: STIRVerifierState<F, M, S>,
     ) -> Option<STIRVerifierState<F, M, S>> {
+        // Step 1: handle randomness
+        let (out_of_domain_randomness, comb_randomness, folding_randomness, randomness_indices) =
+            state.randomness(
+                round_proof.commitment_digest.clone(),
+                round_proof.out_of_domain_evaluations.clone(),
+            );
+
+        // Step 2: proof of work
+        if !state.verify_proof_of_work(proof) {
+            return None;
+        }
         if !round_proof.is_final_round {
-            // Step 1: handle randomness
-            let (out_of_domain_randomness, comb_randomness, folding_randomness, randomness_indices) =
-                state.randomness(
-                    round_proof.commitment_digest.clone(),
-                    round_proof.out_of_domain_evaluations.clone(),
-                );
-
-            // Step 2: proof of work
-            if !state.verify_proof_of_work(proof) {
-                return None;
-            }
-
             // Step 3: more randomness
             let shake_randomness = state.sponge_squeeze();
 
@@ -141,14 +140,6 @@ where
                 sponge: state.sponge,
             });
         } else {
-            // Step 3: Randomness indices
-            let randomness_indices: Vec<usize> = state.randomness_indices();
-
-            // Step 4: Proof of work
-            if !state.verify_proof_of_work(proof) {
-                return None;
-            }
-
             // Step 4: Folded answers
             let oracle_answers = proof.rounds.last().unwrap().challenge_values.clone();
             let folded_answers = state.folded_evaluations(randomness_indices, oracle_answers);

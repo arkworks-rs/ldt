@@ -404,11 +404,11 @@ where
             .chain(folded_answers)
             .collect()
     }
-    pub fn randomness_indices(&mut self) -> Vec<usize> {
-        let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
-        let scaling_factor = self.domain_size / self.config.folding_factor;
-        dedup((0..final_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)))
-    }
+    // pub fn randomness_indices(&mut self) -> Vec<usize> {
+    //     let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
+    //     let scaling_factor = self.domain_size / self.config.folding_factor;
+    //     dedup((0..final_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)))
+    // }
     fn scales(&self, generator: F) -> Vec<F> {
         let scale = generator;
         let mut temp = F::ONE;
