@@ -38,7 +38,7 @@ where
     type CommittedValues = Vec<Vec<F>>;
     type Challenges = Vec<usize>;
     type ChallengeAnswers = Vec<Path<M>>;
-    type Claim = SingleStatement<M>;
+    type Statement = SingleStatement<M>;
     type MerkleConfig = M;
 
     fn new(argument: Self::Argument) -> Self {
@@ -97,11 +97,11 @@ where
         }
         challenge_answers
     }
-    fn claim(&self) -> Self::Claim {
-        SingleStatement::<M>::new(self.commitment_digest())
-    }
     fn domain(&self) -> Domain<F> {
         self.domain.clone()
+    }
+    fn statement(&self) -> Self::Statement {
+        SingleStatement::<M>::new(self.commitment_digest())
     }
     fn verify(
         &self,

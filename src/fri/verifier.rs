@@ -10,10 +10,8 @@ use ark_std::marker::PhantomData;
 
 use crate::{
     domain::Domain,
-    ldt::{
-        fri::{config::FRIConfig, proof::FRIProof},
-        Verifier,
-    },
+    fri::{config::FRIConfig, proof::FRIProof},
+    ldt::Verifier,
     poly_utils,
     statement::single::SingleStatement,
     utils::{dedup, proof_of_work_verify, squeeze_integer},

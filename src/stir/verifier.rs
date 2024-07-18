@@ -7,11 +7,9 @@ use ark_poly::Polynomial;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    ldt::{
-        stir::{config::STIRConfig, proof::STIRProof, verifier_state::STIRVerifierState},
-        Verifier,
-    },
+    ldt::Verifier,
     statement::single::SingleStatement,
+    stir::{config::STIRConfig, proof::STIRProof, verifier_state::STIRVerifierState},
     witness::Witness,
 };
 

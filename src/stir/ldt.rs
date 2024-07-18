@@ -1,8 +1,6 @@
 use crate::{
-    ldt::{
-        stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
-        LowDegreeTest, Prover, Verifier,
-    },
+    ldt::{LowDegreeTest, Prover, Verifier},
+    stir::{config::STIRConfig, proof::STIRProof, prover::STIRProver, verifier::STIRVerifier},
     witness::Witness,
 };
 use ark_crypto_primitives::{

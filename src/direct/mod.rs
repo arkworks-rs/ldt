@@ -13,11 +13,9 @@ mod tests {
 
     use crate::{
         crypto::{fields::Field256, fs, merkle_tree},
+        direct::{config::DirectConfig, ldt::DirectLDT},
         domain::Domain,
-        ldt::{
-            fri::{config::FRIConfig, ldt::FRI},
-            LowDegreeTest, Prover, Verifier,
-        },
+        ldt::{LowDegreeTest, Prover, Verifier},
         witness::{
             single::{SingleWitness, SingleWitnessArgument},
             Witness,
@@ -30,42 +28,38 @@ mod tests {
     type TestWitness = SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig>;
 
     #[test]
-    fn test_fri_ldt() {
+    fn test_direct_ldt() {
         // get ready
         let mut rng = test_rng();
         let (merkle_leaf_hash_param, merkle_two_to_one_param) =
             merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
-        let config: FRIConfig<TestMerkleConfig, TestSpongeConfig> = FRIConfig {
-            folding_factor: 2,
-            num_rounds: 4,
-            num_queries: 8,
+        let config: DirectConfig<TestMerkleConfig, TestSpongeConfig> = DirectConfig {
+            degree: 22,
+            num_challenges: 2,
             merkle_leaf_hash_param: merkle_leaf_hash_param.clone(),
             merkle_two_to_one_param: merkle_two_to_one_param.clone(),
-            proof_of_work_bits: 8,
-            repetitions: 4,
             sponge_config: fs::poseidon::default_fs_config::<Field256>(),
-            starting_degree: 22,
-            starting_rate: 8,
         };
         let (prover, verifier) =
-            FRI::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(config.clone());
+            DirectLDT::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(
+                config.clone(),
+            );
 
         // generate witness
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
             SingleWitness::new(SingleWitnessArgument {
-                coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
-                domain: Domain::<TestField>::new(config.starting_degree, config.starting_rate)
-                    .unwrap(),
-                folding_factor: config.folding_factor,
+                coeff: DensePolynomial::<Field256>::rand(config.degree, &mut rng),
+                domain: Domain::<TestField>::new(config.degree, 0).unwrap(),
+                folding_factor: 1,
                 merkle_leaf_hash_param,
                 merkle_two_to_one_param,
                 sponge_config: config.sponge_config,
             });
 
         // prove
-        let fri_proof = prover.prove(&witness);
+        let direct_proof = prover.prove(&witness);
 
         // verify
-        assert_eq!(verifier.verify(&witness.claim(), &fri_proof), true);
+        assert_eq!(verifier.verify(&witness.statement(), &direct_proof), true);
     }
 }

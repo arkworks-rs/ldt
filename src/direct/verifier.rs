@@ -6,10 +6,8 @@ use ark_ff::FftField;
 use ark_std::marker::PhantomData;
 
 use crate::{
-    ldt::{
-        direct::{config::DirectConfig, proof::DirectProof},
-        Verifier,
-    },
+    direct::{config::DirectConfig, proof::DirectProof},
+    ldt::Verifier,
     statement::single::SingleStatement,
     utils::squeeze_integer,
     witness::Witness,

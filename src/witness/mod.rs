@@ -11,7 +11,7 @@ pub trait Witness<F: FftField, M: MerkleConfig> {
     type Commitment;
     type Challenges;
     type ChallengeAnswers;
-    type Claim;
+    type Statement;
     type CommittedValues;
     type MerkleConfig;
 
@@ -23,8 +23,8 @@ pub trait Witness<F: FftField, M: MerkleConfig> {
     fn committed_values(&self) -> Self::CommittedValues;
     fn challenges(&self, num_challenges: usize) -> Self::Challenges;
     fn challenge_answers(&self, challenges: Self::Challenges) -> Self::ChallengeAnswers;
-    fn claim(&self) -> Self::Claim;
     fn domain(&self) -> Domain<F>;
+    fn statement(&self) -> Self::Statement;
     fn verify(
         &self,
         challenges: Self::Challenges,
