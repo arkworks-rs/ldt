@@ -30,6 +30,7 @@ where
     pub domain_size: usize,
     pub folding_randomness: F,
     pub interpolating_coeff: DensePolynomial<F>,
+    pub is_verified: bool, // NOTE: this kinda like corresponds to successful "transition" from state n - 1 --> n, hence for n = 0 set true
     pub proof: STIRProof<F, M, S>,
     pub quotient_set: Vec<F>,
     pub root_of_unity: F,
@@ -40,7 +41,7 @@ where
 impl<F, M, S> STIRVerifierState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
@@ -67,6 +68,7 @@ where
             folding_randomness,
             proof,
             interpolating_coeff: DensePolynomial::from_coefficients_vec(vec![]),
+            is_verified: true,
             quotient_set: vec![],
             root_of_unity: domain_gen,
             round_num: 0,
@@ -316,31 +318,6 @@ where
             size_inv,
         )
     }
-    pub fn randomness(
-        &mut self,
-        commitment_digest: M::InnerDigest,
-        out_of_domain_evaluations: Vec<F>,
-    ) -> (Vec<F>, F, F, Vec<usize>) {
-        self.sponge_absorb(&commitment_digest);
-        let out_of_domain = self.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
-        self.sponge_absorb(&out_of_domain_evaluations);
-        let comb = self.sponge_squeeze();
-        let folding = self.sponge_squeeze();
-        let scaling_factor = self.domain_size / self.config.folding_factor;
-        let num_repetitions = self.config.num_repetitions[self.round_num];
-        let indices =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)));
-        (out_of_domain, comb, folding, indices)
-    }
-    pub fn sponge_absorb(&mut self, element: impl Absorb) {
-        self.sponge.absorb(&element);
-    }
-    pub fn sponge_squeeze(&mut self) -> F {
-        self.sponge.squeeze_field_elements(1)[0]
-    }
-    pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
-        self.sponge.squeeze_field_elements(num_elements)
-    }
     // TODO: Nuke this
     fn query(
         &self,
@@ -404,11 +381,22 @@ where
             .chain(folded_answers)
             .collect()
     }
-    // pub fn randomness_indices(&mut self) -> Vec<usize> {
-    //     let final_repetitions = self.config.num_repetitions[self.config.num_rounds];
-    //     let scaling_factor = self.domain_size / self.config.folding_factor;
-    //     dedup((0..final_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)))
-    // }
+    pub fn randomness(
+        &mut self,
+        commitment_digest: M::InnerDigest,
+        out_of_domain_evaluations: Vec<F>,
+    ) -> (Vec<F>, F, F, Vec<usize>) {
+        self.sponge_absorb(&commitment_digest);
+        let out_of_domain = self.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
+        self.sponge_absorb(&out_of_domain_evaluations);
+        let comb = self.sponge_squeeze();
+        let folding = self.sponge_squeeze();
+        let scaling_factor = self.domain_size / self.config.folding_factor;
+        let num_repetitions = self.config.num_repetitions[self.round_num];
+        let indices =
+            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)));
+        (out_of_domain, comb, folding, indices)
+    }
     fn scales(&self, generator: F) -> Vec<F> {
         let scale = generator;
         let mut temp = F::ONE;
@@ -418,6 +406,15 @@ where
             temp *= scale;
         }
         scales
+    }
+    pub fn sponge_absorb(&mut self, element: impl Absorb) {
+        self.sponge.absorb(&element);
+    }
+    pub fn sponge_squeeze(&mut self) -> F {
+        self.sponge.squeeze_field_elements(1)[0]
+    }
+    pub fn sponge_squeeze_multiple(&mut self, num_elements: usize) -> Vec<F> {
+        self.sponge.squeeze_field_elements(num_elements)
     }
     pub fn verify_folded_answers(&self, randomness_indices: Vec<usize>) -> bool {
         let oracle_answers = self.proof.rounds.last().unwrap().challenge_values.clone();
@@ -436,5 +433,112 @@ where
                 .unwrap()
                 .proof_of_work_nonce,
         )
+    }
+    pub fn verify_quotient_answers(
+        &mut self,
+        out_of_domain_randomness: &Vec<F>,
+        randomness_indices: &Vec<usize>,
+    ) -> bool {
+        let shake_randomness = self.sponge_squeeze();
+        let quotient_answers: Vec<(F, F)> = self.quotient_answers(
+            &self.proof.rounds[self.round_num].challenge_values,
+            &out_of_domain_randomness,
+            &self.proof.rounds[self.round_num].out_of_domain_evaluations,
+            &randomness_indices,
+        );
+        self.quotient_set = quotient_answers
+            .clone()
+            .into_iter()
+            .map(|(x, _)| x)
+            .collect();
+        self.proof.rounds[self.round_num]
+            .verify_quotient_answers(&quotient_answers, &shake_randomness)
+    }
+}
+
+impl<F, M, S> Iterator for STIRVerifierState<F, M, S>
+where
+    F: FftField + PrimeField + Absorb,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
+    M::InnerDigest: Absorb,
+    S: CryptographicSponge,
+    S::Config: Clone,
+{
+    type Item = Self;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.round_num < self.config.num_rounds {
+            // Step 1: verify challenges
+            self.proof.rounds[self.round_num].verify_challenge_answers();
+
+            // Step 2: handle some randomness
+            let (out_of_domain_randomness, comb_randomness, folding_randomness, randomness_indices) =
+                self.randomness(
+                    self.proof.rounds[self.round_num].commitment_digest.clone(),
+                    self.proof.rounds[self.round_num]
+                        .out_of_domain_evaluations
+                        .clone(),
+                );
+
+            // Step 3: proof of work
+            if !self.verify_proof_of_work(&self.proof.clone()) {
+                self.is_verified = false;
+                return Some(self.clone());
+            }
+
+            if !self.proof.rounds[self.round_num].is_final_round {
+                // Step 4: verify quotient answers
+                if !self.verify_quotient_answers(&out_of_domain_randomness, &randomness_indices) {
+                    self.is_verified = false;
+                    return Some(self.clone());
+                }
+            } else {
+                // Step 5: Folded answers
+                if !self.verify_folded_answers(randomness_indices) {
+                    self.is_verified = false;
+                    return Some(self.clone());
+                }
+            }
+
+            // Step 6: update some state
+            self.comb_randomness = comb_randomness;
+            self.domain_gen = self.domain_gen * self.domain_gen;
+            self.domain_offset = self.domain_offset * self.domain_offset * self.root_of_unity;
+            self.domain_size = self.domain_size / 2;
+            self.folding_randomness = folding_randomness;
+            self.interpolating_coeff = self.proof.rounds[self.round_num].coeff.clone();
+            self.round_num = self.round_num + 1;
+
+            // Step 7: done
+            Some(self.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl<F, M, S> Clone for STIRVerifierState<F, M, S>
+where
+    F: FftField + Clone,
+    M: MerkleConfig + Clone,
+    S: CryptographicSponge + Clone,
+    S::Config: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            comb_randomness: self.comb_randomness.clone(),
+            config: self.config.clone(),
+            domain_gen: self.domain_gen.clone(),
+            domain_offset: self.domain_offset.clone(),
+            domain_size: self.domain_size,
+            folding_randomness: self.folding_randomness.clone(),
+            interpolating_coeff: self.interpolating_coeff.clone(),
+            is_verified: self.is_verified,
+            proof: self.proof.clone(),
+            quotient_set: self.quotient_set.clone(),
+            root_of_unity: self.root_of_unity.clone(),
+            round_num: self.round_num,
+            sponge: self.sponge.clone(),
+        }
     }
 }

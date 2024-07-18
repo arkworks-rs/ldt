@@ -118,17 +118,6 @@ pub struct STIRProof<F: Field, M: MerkleConfig, S: CryptographicSponge> {
     pub rounds: Vec<STIRProofRound<F, M, S>>,
 }
 
-impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProof<F, M, S> {
-    pub fn verify_challenge_answers(&self) -> bool {
-        for round in &self.rounds {
-            if !round.verify_challenge_answers() {
-                return false;
-            }
-        }
-        true
-    }
-}
-
 impl<F, M, S> Clone for STIRProof<F, M, S>
 where
     F: Field,
