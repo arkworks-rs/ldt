@@ -419,6 +419,13 @@ where
         }
         scales
     }
+    pub fn verify_folded_answers(&self, randomness_indices: Vec<usize>) -> bool {
+        let oracle_answers = self.proof.rounds.last().unwrap().challenge_values.clone();
+        let folded_answers = self.folded_evaluations(randomness_indices, oracle_answers);
+        folded_answers
+            .into_iter()
+            .all(|(point, value)| self.proof.rounds.last().unwrap().coeff.evaluate(&point) == value)
+    }
     pub fn verify_proof_of_work(&mut self, proof: &STIRProof<F, M, S>) -> bool {
         proof_of_work_verify(
             &mut self.sponge,
