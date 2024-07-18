@@ -310,6 +310,22 @@ where
             size_inv,
         )
     }
+    pub fn randomness(
+        &mut self,
+        commitment_digest: M::InnerDigest,
+        out_of_domain_evaluations: Vec<F>,
+    ) -> (Vec<F>, F, F, Vec<usize>) {
+        self.sponge_absorb(&commitment_digest);
+        let out_of_domain = self.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
+        self.sponge_absorb(&out_of_domain_evaluations);
+        let comb = self.sponge_squeeze();
+        let folding = self.sponge_squeeze();
+        let scaling_factor = self.domain_size / self.config.folding_factor;
+        let num_repetitions = self.config.num_repetitions[self.round_num];
+        let indices =
+            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut self.sponge, scaling_factor)));
+        (out_of_domain, comb, folding, indices)
+    }
     pub fn sponge_absorb(&mut self, element: impl Absorb) {
         self.sponge.absorb(&element);
     }

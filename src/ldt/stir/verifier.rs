@@ -16,7 +16,6 @@ use crate::{
         Verifier,
     },
     statement::single::SingleStatement,
-    utils::{dedup, proof_of_work_verify, squeeze_integer},
     witness::Witness,
 };
 
@@ -70,7 +69,7 @@ where
         let mut state = STIRVerifierState::new(self.config.clone(), claim.commitment_digest());
         for round_proof in &proof.rounds {
             if !round_proof.is_final_round {
-                let round_result = self.round(round_proof, state);
+                let round_result = self.round(proof, round_proof, state);
                 if round_result.is_none() {
                     return false;
                 }
@@ -107,45 +106,31 @@ where
 {
     fn round(
         &self,
+        proof: &STIRProof<F, M, S>,
         round_proof: &STIRProofRound<F, M, S>,
         mut state: STIRVerifierState<F, M, S>,
     ) -> Option<STIRVerifierState<F, M, S>> {
-        // Redo FS
-        state.sponge_absorb(&round_proof.commitment_digest);
-        let ood_randomness = state.sponge_squeeze_multiple(self.config.num_out_of_domain_samples);
-        state.sponge_absorb(&round_proof.out_of_domain_evaluations);
-        let comb_randomness = state.sponge_squeeze();
-        let new_folding_randomness = state.sponge_squeeze();
-        let scaling_factor = state.domain_size / self.config.folding_factor;
+        // Step 1: handle randomness
+        let (out_of_domain_randomness, comb_randomness, folding_randomness, randomness_indices) =
+            state.randomness(
+                round_proof.commitment_digest.clone(),
+                round_proof.out_of_domain_evaluations.clone(),
+            );
 
-        let num_repetitions = self.config.num_repetitions[state.round_num];
-        let stir_randomness_indexes =
-            dedup((0..num_repetitions).map(|_| squeeze_integer(&mut state.sponge, scaling_factor)));
-
-        // PoW verification
-        if !proof_of_work_verify(
-            &mut state.sponge,
-            self.config.num_proof_of_work_bits[state.round_num],
-            round_proof.proof_of_work_nonce,
-        ) {
+        // Step 2: proof of work
+        if !state.verify_proof_of_work(proof) {
             return None;
         }
 
+        // Step 3: more randomness
         let shake_randomness = state.sponge_squeeze();
 
-        // Now, we are starting to define the next function.
-        // First, we need to query the previous oracle (which is either f_0 or g_i)
-        // At the indexes B_i for i in stir_randomness_indexes
-        // Since we previously verified the Merkle paths, this is easy
-        // TODO: We should probably check the indexes
-        let oracle_answers = round_proof.challenge_values.clone();
-
-        // Now, for each of the selected random points, we need to compute the folding of the
-        // previous oracle
-        let folded_answers = state.folded_evaluations(stir_randomness_indexes, oracle_answers);
+        // Step 4: for random indices compute folding of previous oracle TODO: check indices?
+        let folded_answers =
+            state.folded_evaluations(randomness_indices, round_proof.challenge_values.clone());
 
         // The quotient definining the function
-        let quotient_answers: Vec<_> = ood_randomness
+        let quotient_answers: Vec<_> = out_of_domain_randomness
             .into_iter()
             .zip(&round_proof.out_of_domain_evaluations)
             .map(|(alpha, beta)| (alpha, *beta))
@@ -179,7 +164,7 @@ where
             domain_gen: state.domain_gen * state.domain_gen,
             domain_offset: state.domain_offset * state.domain_offset * state.root_of_unity,
             domain_size: state.domain_size / 2,
-            folding_randomness: new_folding_randomness,
+            folding_randomness: folding_randomness,
             interpolating_polynomial: interpolating_polynomial.clone(),
             quotient_set: quotient_answers
                 .into_iter()
