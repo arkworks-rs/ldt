@@ -30,7 +30,7 @@ where
     domain_size: usize,
     folding_randomness: F,
     interpolating_coeff: DensePolynomial<F>,
-    is_verified: bool, // NOTE: this kinda like corresponds to successful "transition" from state n - 1 --> n, hence for n = 0 set true
+    is_verified: bool, // NOTE: corresponds to successful "transition" from state n - 1 --> n, hence for n = 0 set true
     proof: STIRProof<F, M, S>,
     quotient_set: Vec<F>,
     root_of_unity: F,
