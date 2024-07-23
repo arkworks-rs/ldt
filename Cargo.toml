@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 ark-crypto-primitives = { version="^0.4.0", features = ["merkle_tree", "sponge"] }
-ark-ff = { version = "^0.4.2", default-features = false }
+ark-ff = { version = "0.4" }
 ark-poly = { version = "0.4.2" }
 ark-std = { version="^0.4.0" }
 ark-serialize = { version = "0.4" }
@@ -19,5 +19,9 @@ rand = { version = "0.8" }
 sha3 = { version = "0.10" }
 itertools = "0.13.0"
 
-[dev-dependencies]
-ark-bn254 = { version="^0.4.0" }
+[patch.crates-io]
+ark-crypto-primitives = { path = "../crypto-primitives/crypto-primitives" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
+ark-test-curves = {  git = "https://github.com/arkworks-rs/algebra" }
