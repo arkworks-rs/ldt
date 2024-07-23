@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, Path},
+    merkle_tree::{Config as MerkleConfig, MultiPath},
     sponge::{Absorb, CryptographicSponge},
 };
 
@@ -38,7 +38,7 @@ where
             M,
             MerkleConfig = M,
             CommittedValues = Vec<Vec<F>>,
-            ChallengeAnswers = Vec<Path<M>>,
+            ChallengeAnswers = MultiPath<M>,
             Challenges = Vec<usize>,
         > + Clone,
     W::ChallengeAnswers: Clone,

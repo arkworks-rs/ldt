@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, Path},
+    merkle_tree::{Config as MerkleConfig, MultiPath},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
@@ -30,7 +30,7 @@ where
             F,
             M,
             MerkleConfig = M,
-            ChallengeAnswers = Vec<Path<M>>,
+            ChallengeAnswers = MultiPath<M>,
             CommittedValues = Vec<Vec<F>>,
             Challenges = Vec<usize>,
         > + Clone,

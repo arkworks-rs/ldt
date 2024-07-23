@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, Path},
+    merkle_tree::{Config as MerkleConfig, MultiPath},
     sponge::CryptographicSponge,
 };
 use ark_ff::{batch_inversion, Field};
@@ -9,7 +9,7 @@ use super::config::STIRConfig;
 
 pub struct STIRProofRound<F: Field, M: MerkleConfig, S: CryptographicSponge> {
     pub coeff: DensePolynomial<F>,
-    pub challenge_answers: Vec<Path<M>>,
+    pub challenge_answers: MultiPath<M>,
     pub challenge_values: Vec<Vec<F>>,
     pub commitment_digest: M::InnerDigest,
     pub config: STIRConfig<M, S>,
@@ -23,7 +23,7 @@ pub struct STIRProofRound<F: Field, M: MerkleConfig, S: CryptographicSponge> {
 impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProofRound<F, M, S> {
     pub fn new(
         coeff: DensePolynomial<F>,
-        challenge_answers: Vec<Path<M>>,
+        challenge_answers: MultiPath<M>,
         challenge_values: Vec<Vec<F>>,
         commitment_digest: M::InnerDigest,
         config: STIRConfig<M, S>,
@@ -47,24 +47,14 @@ impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProof
         }
     }
     pub fn verify_challenge_answers(&self) -> bool {
-        for (challenge_value, challenge_answer) in self
-            .challenge_values
-            .iter()
-            .zip(self.challenge_answers.iter())
-        {
-            if !challenge_answer
-                .verify(
-                    &self.config.merkle_leaf_hash_param,
-                    &self.config.merkle_two_to_one_param,
-                    &self.last_round_commitment_digest,
-                    challenge_value,
-                )
-                .unwrap()
-            {
-                return false;
-            }
-        }
-        true
+        self.challenge_answers
+            .verify(
+                &self.config.merkle_leaf_hash_param,
+                &self.config.merkle_two_to_one_param,
+                &self.last_round_commitment_digest,
+                self.challenge_values.clone(),
+            )
+            .unwrap()
     }
     pub fn verify_quotient_answers(
         &self,

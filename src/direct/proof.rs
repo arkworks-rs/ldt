@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, LeafParam, Path, TwoToOneParam},
+    merkle_tree::{Config as MerkleConfig, LeafParam, MultiPath, TwoToOneParam},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
@@ -12,7 +12,7 @@ where
     M: MerkleConfig,
     S: CryptographicSponge,
 {
-    challenge_answers: Vec<Path<M>>,
+    challenge_answers: MultiPath<M>,
     committed_values: Vec<Vec<F>>,
     merkle_leaf_hash_param: LeafParam<M>,
     merkle_two_to_one_param: TwoToOneParam<M>,
@@ -27,7 +27,7 @@ where
     S: CryptographicSponge,
 {
     pub fn new(
-        challenge_answers: Vec<Path<M>>,
+        challenge_answers: MultiPath<M>,
         committed_values: Vec<Vec<F>>,
         merkle_leaf_hash_param: LeafParam<M>,
         merkle_two_to_one_param: TwoToOneParam<M>,
@@ -57,25 +57,26 @@ where
         challenges
     }
     pub fn verify(&self, commitment_digest: M::InnerDigest, challenges: Vec<usize>) -> bool {
-        for (&challenge, answer) in challenges.iter().zip(self.challenge_answers.clone()) {
-            // the answer given should correspond to the correct challenge
-            if !answer.leaf_index == challenge {
-                return false;
-            }
-
-            // the proof should be valid with the given value against the digest
-            if !answer
-                .verify(
-                    &self.merkle_leaf_hash_param,
-                    &self.merkle_two_to_one_param,
-                    &commitment_digest,
-                    self.committed_values[challenge].clone(),
-                )
-                .unwrap()
-            {
-                return false;
-            }
+        if self.challenge_answers.leaf_indexes
+            != challenges.iter().rev().cloned().collect::<Vec<usize>>()
+        {
+            // TODO: IDK why self.challenge_answers.leaf_indexes comes back in reverse
+            return false;
         }
-        true
+
+        let challenge_values: Vec<Vec<F>> = self
+            .challenge_answers
+            .leaf_indexes
+            .iter()
+            .map(|&i| self.committed_values.get(i).unwrap().clone())
+            .collect();
+        self.challenge_answers
+            .verify(
+                &self.merkle_leaf_hash_param,
+                &self.merkle_two_to_one_param,
+                &commitment_digest,
+                challenge_values,
+            )
+            .unwrap()
     }
 }

@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, LeafParam, MerkleTree, Path, TwoToOneParam},
+    merkle_tree::{Config as MerkleConfig, LeafParam, MerkleTree, MultiPath, TwoToOneParam},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
@@ -37,7 +37,7 @@ where
     type Commitment = MerkleTree<M>;
     type CommittedValues = Vec<Vec<F>>;
     type Challenges = Vec<usize>;
-    type ChallengeAnswers = Vec<Path<M>>;
+    type ChallengeAnswers = MultiPath<M>;
     type Statement = SingleStatement<M>;
     type MerkleConfig = M;
 
@@ -91,11 +91,7 @@ where
         challenges
     }
     fn challenge_answers(&self, challenges: Self::Challenges) -> Self::ChallengeAnswers {
-        let mut challenge_answers: Vec<Path<M>> = Vec::with_capacity(challenges.len());
-        for challenge in challenges {
-            challenge_answers.push(self.commitment.generate_proof(challenge).unwrap());
-        }
-        challenge_answers
+        self.commitment.generate_multi_proof(challenges).unwrap()
     }
     fn domain(&self) -> Domain<F> {
         self.domain.clone()
@@ -108,26 +104,17 @@ where
         challenges: Self::Challenges,
         challenge_answers: Self::ChallengeAnswers,
     ) -> bool {
-        for (&challenge, answer) in challenges.iter().zip(challenge_answers) {
-            // the answer given should correspond to the correct challenge
-            if !answer.leaf_index == challenge {
-                return false;
-            }
-
-            // the proof should be valid with the given value against the digest
-            if !answer
-                .verify(
-                    &self.argument.merkle_leaf_hash_param,
-                    &self.argument.merkle_two_to_one_param,
-                    &self.commitment.root(),
-                    self.committed_values[challenge].clone(),
-                )
-                .unwrap()
-            {
-                return false;
-            }
+        if challenge_answers.leaf_indexes != challenges {
+            return false;
         }
-        true
+        challenge_answers
+            .verify(
+                &self.argument.merkle_leaf_hash_param,
+                &self.argument.merkle_two_to_one_param,
+                &self.commitment.root(),
+                self.committed_values.clone(),
+            )
+            .unwrap()
     }
 }
 impl<F, M, S> Clone for SingleWitness<F, M, S>

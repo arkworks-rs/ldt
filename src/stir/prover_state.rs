@@ -1,5 +1,5 @@
 use ark_crypto_primitives::{
-    merkle_tree::{Config as MerkleConfig, MerkleTree, Path},
+    merkle_tree::{Config as MerkleConfig, MerkleTree, MultiPath},
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::{FftField, PrimeField};
@@ -21,7 +21,7 @@ where
 {
     answer_coeff: DensePolynomial<F>,
     domain: Domain<F>,
-    challenge_answers: Vec<Path<M>>,
+    challenge_answers: MultiPath<M>,
     challenge_values: Vec<Vec<F>>,
     challenges: Vec<usize>,
     commitment: MerkleTree<M>,
@@ -63,7 +63,15 @@ where
         Self {
             answer_coeff: DensePolynomial::from_coefficients_vec(vec![]),
             domain: domain.clone(),
-            challenge_answers: vec![],
+            challenge_answers: MerkleTree::<M>::new(
+                // this is never checked, it's meant to be the equivalent of vec![]
+                &config.merkle_leaf_hash_param,
+                &config.merkle_two_to_one_param,
+                &vec![vec![F::ZERO], vec![F::ZERO]],
+            )
+            .unwrap()
+            .generate_multi_proof(vec![])
+            .unwrap(),
             challenge_values: vec![],
             challenges: vec![],
             commitment,
@@ -153,11 +161,10 @@ where
             .iter()
             .map(|index| committed_values[*index].clone())
             .collect();
-        self.challenge_answers = Vec::with_capacity(self.challenge_values.len());
-        for challenge in &self.challenges {
-            self.challenge_answers
-                .push(commitment.generate_proof(*challenge).unwrap());
-        }
+
+        self.challenge_answers = commitment
+            .generate_multi_proof(self.challenges.clone())
+            .unwrap();
     }
     fn update_coeffs(&mut self) {
         // zip set and answers into Vec<(F, F)>
