@@ -20,7 +20,7 @@ sha3 = { version = "0.10" }
 itertools = "0.13.0"
 
 [patch.crates-io]
-ark-crypto-primitives = { path = "../crypto-primitives/crypto-primitives" }
+ark-crypto-primitives = { git= "https://github.com/arkworks-rs/crypto-primitives" }
 ark-ec = { git = "https://github.com/arkworks-rs/algebra/" }
 ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
