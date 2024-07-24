@@ -1,8 +1,5 @@
-pub mod blake2;
-pub mod blake3;
 pub mod mock;
 pub mod poseidon;
-pub mod sha3;
 
 use ark_std::{
     borrow::Borrow,
