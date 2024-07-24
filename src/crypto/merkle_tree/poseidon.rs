@@ -10,7 +10,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use rand::RngCore;
+use ark_std::rand::RngCore;
 
 use crate::crypto::fs;
 

@@ -10,8 +10,8 @@ use ark_std::{
 
 use ark_crypto_primitives::crh::CRHScheme;
 use ark_serialize::CanonicalSerialize;
+use ark_std::rand::RngCore;
 use lazy_static::lazy_static;
-use rand::RngCore;
 
 #[derive(Debug, Default)]
 pub struct HashCounter {

@@ -9,7 +9,7 @@ use ark_crypto_primitives::{
     merkle_tree::{ByteDigestConverter, Config},
 };
 use ark_serialize::CanonicalSerialize;
-use rand::RngCore;
+use ark_std::rand::RngCore;
 
 pub struct Mock;
 

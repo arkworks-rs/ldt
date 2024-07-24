@@ -74,11 +74,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
-
     use super::*;
     use crate::crypto::fields::Field64 as TestField;
     use ark_ff::AdditiveGroup;
+    use ark_std::rand::Rng;
 
     fn test_bivariate(
         poly: &DensePolynomial<TestField>,

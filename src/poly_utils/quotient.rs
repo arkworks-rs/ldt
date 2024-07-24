@@ -68,8 +68,8 @@ pub fn quotient_with_hint<'a, F: Field>(
 #[cfg(test)]
 mod tests {
     use ark_poly::DenseUVPolynomial;
+    use ark_std::rand::Rng;
     use ark_std::vec;
-    use rand::Rng;
 
     use super::*;
     use crate::crypto::fields::Field64 as TestField;
