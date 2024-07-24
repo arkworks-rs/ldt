@@ -3,7 +3,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::FftField;
-use ark_std::marker::PhantomData;
+use ark_std::{marker::PhantomData, vec::Vec};
 
 use crate::{
     direct::{config::DirectConfig, prover::DirectProver, verifier::DirectVerifier},

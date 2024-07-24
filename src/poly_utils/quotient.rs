@@ -1,5 +1,6 @@
 use ark_ff::{FftField, Field};
 use ark_poly::{univariate::DensePolynomial, Polynomial};
+use ark_std::vec::Vec;
 
 use super::interpolation;
 
@@ -67,6 +68,7 @@ pub fn quotient_with_hint<'a, F: Field>(
 #[cfg(test)]
 mod tests {
     use ark_poly::DenseUVPolynomial;
+    use ark_std::vec;
     use rand::Rng;
 
     use super::*;

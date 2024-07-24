@@ -1,4 +1,8 @@
-use std::{borrow::Borrow, marker::PhantomData};
+use ark_std::{
+    borrow::Borrow,
+    marker::PhantomData,
+    {vec, vec::Vec},
+};
 
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},

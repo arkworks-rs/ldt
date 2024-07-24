@@ -1,5 +1,6 @@
 use ark_ff::Field;
 use ark_poly::{univariate::DensePolynomial, Polynomial};
+use ark_std::vec::Vec;
 
 use crate::poly_utils::interpolation;
 

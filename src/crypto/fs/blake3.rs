@@ -1,4 +1,5 @@
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
+use ark_std::{vec, vec::Vec};
 use blake3::Hasher;
 
 #[derive(Default, Clone, Copy)]

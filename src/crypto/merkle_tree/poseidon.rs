@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, marker::PhantomData};
+use ark_std::{borrow::Borrow, marker::PhantomData, vec::Vec};
 
 use ark_crypto_primitives::crh::poseidon;
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;

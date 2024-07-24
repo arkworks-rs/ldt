@@ -12,6 +12,7 @@ mod tests {
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::DenseUVPolynomial;
     use ark_std::test_rng;
+    use ark_std::vec;
 
     use crate::{
         crypto::{fields::Field256, fs, merkle_tree},

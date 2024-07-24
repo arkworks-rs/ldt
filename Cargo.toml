@@ -5,7 +5,7 @@ authors = ["arkworks contributors"]
 edition = "2021"
 
 [dependencies]
-ark-crypto-primitives = { version="^0.4.0", features = ["merkle_tree", "sponge"] }
+ark-crypto-primitives = { default-features = false, features = ["merkle_tree", "sponge"], version="^0.4.0" }
 ark-ff = { version = "0.4" }
 ark-poly = { version = "0.4.2" }
 ark-std = { version="^0.4.0" }
@@ -13,11 +13,11 @@ ark-serialize = { version = "0.4" }
 ark-test-curves = { version = "0.4", features = [ "bls12_381_curve" ] }
 blake2 = { version = "0.10" }
 blake3 = { version = "1.5.0" }
+itertools = "0.13.0"
 lazy_static = { version = "1.4" }
 poseidon-paramgen = { version  = "0.4" }
 rand = { version = "0.8" }
 sha3 = { version = "0.10" }
-itertools = "0.13.0"
 
 [patch.crates-io]
 ark-crypto-primitives = { git= "https://github.com/arkworks-rs/crypto-primitives" }

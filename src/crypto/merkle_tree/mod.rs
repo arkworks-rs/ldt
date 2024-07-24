@@ -4,7 +4,12 @@ pub mod mock;
 pub mod poseidon;
 pub mod sha3;
 
-use std::{borrow::Borrow, marker::PhantomData, sync::atomic::AtomicUsize};
+use ark_std::{
+    borrow::Borrow,
+    marker::PhantomData,
+    sync::atomic::AtomicUsize,
+    {vec, vec::Vec},
+};
 
 use ark_crypto_primitives::crh::CRHScheme;
 use ark_serialize::CanonicalSerialize;
@@ -24,19 +29,19 @@ impl HashCounter {
     pub(crate) fn add() -> usize {
         HASH_COUNTER
             .counter
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            .fetch_add(1, ark_std::sync::atomic::Ordering::SeqCst)
     }
 
     pub fn reset() {
         HASH_COUNTER
             .counter
-            .store(0, std::sync::atomic::Ordering::SeqCst)
+            .store(0, ark_std::sync::atomic::Ordering::SeqCst)
     }
 
     pub fn get() -> usize {
         HASH_COUNTER
             .counter
-            .load(std::sync::atomic::Ordering::SeqCst)
+            .load(ark_std::sync::atomic::Ordering::SeqCst)
     }
 }
 

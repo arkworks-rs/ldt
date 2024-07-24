@@ -2,6 +2,7 @@ use ark_ff::{batch_inversion, FftField, Field};
 use ark_poly::{
     univariate::DensePolynomial, DenseUVPolynomial, Evaluations, Polynomial, Radix2EvaluationDomain,
 };
+use ark_std::{vec, vec::Vec};
 
 use crate::utils;
 

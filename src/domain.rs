@@ -1,9 +1,8 @@
-use std::ops::Deref;
-
 use ark_ff::FftField;
 use ark_poly::{
     EvaluationDomain, GeneralEvaluationDomain, MixedRadixEvaluationDomain, Radix2EvaluationDomain,
 };
+use ark_std::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub struct Domain<F: FftField> {
@@ -164,7 +163,7 @@ impl<F: FftField> Deref for Domain<F> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use ark_std::collections::HashSet;
 
     use super::*;
     use crate::crypto::fields::Field64 as TestField;

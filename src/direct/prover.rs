@@ -4,7 +4,7 @@ use ark_crypto_primitives::{
 };
 
 use ark_ff::FftField;
-use ark_std::marker::PhantomData;
+use ark_std::{marker::PhantomData, vec::Vec};
 
 use crate::{
     direct::{config::DirectConfig, proof::DirectProof},

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use ark_std::{collections::BTreeSet, vec, vec::Vec};
 
 use ark_crypto_primitives::sponge::CryptographicSponge;
 

@@ -4,6 +4,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::{batch_inversion, Field};
 use ark_poly::{univariate::DensePolynomial, Polynomial};
+use ark_std::vec::Vec;
 
 use super::config::STIRConfig;
 

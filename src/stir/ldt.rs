@@ -9,6 +9,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::{FftField, PrimeField};
 use ark_std::marker::PhantomData;
+use ark_std::vec::Vec;
 
 pub struct STIR<F, M, S, W>
 where

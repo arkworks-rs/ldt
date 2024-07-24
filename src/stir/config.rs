@@ -2,6 +2,7 @@ use ark_crypto_primitives::{
     merkle_tree::{Config as MerkleConfig, LeafParam, TwoToOneParam},
     sponge::CryptographicSponge,
 };
+use ark_std::vec::Vec;
 
 pub struct STIRConfig<M: MerkleConfig, S: CryptographicSponge> {
     pub folding_factor: usize,

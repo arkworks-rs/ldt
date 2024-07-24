@@ -1,3 +1,4 @@
+#![no_std]
 pub mod crypto;
 pub mod direct;
 pub mod domain;

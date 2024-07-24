@@ -4,6 +4,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial};
+use ark_std::{vec, vec::Vec};
 
 use crate::{
     domain::Domain,
