@@ -1,5 +1,5 @@
-use ark_std::sync::atomic::{AtomicUsize, Ordering};
-use ark_std::sync::{Mutex, Once};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use spin::{Mutex, Once};
 
 pub mod mock;
 pub mod poseidon;
@@ -15,7 +15,6 @@ pub struct HashCounter {
     counter: AtomicUsize,
 }
 
-// Create a `Once` and a `Mutex` to handle the initialization of the `HashCounter`
 static INIT: Once = Once::new();
 static mut HASH_COUNTER: Option<Mutex<HashCounter>> = None;
 
@@ -30,17 +29,17 @@ impl HashCounter {
     }
 
     pub(crate) fn add() -> usize {
-        let counter = Self::get_instance().lock().unwrap();
+        let counter = Self::get_instance().lock();
         counter.counter.fetch_add(1, Ordering::SeqCst)
     }
 
     pub fn reset() {
-        let counter = Self::get_instance().lock().unwrap();
+        let counter = Self::get_instance().lock();
         counter.counter.store(0, Ordering::SeqCst)
     }
 
     pub fn get() -> usize {
-        let counter = Self::get_instance().lock().unwrap();
+        let counter = Self::get_instance().lock();
         counter.counter.load(Ordering::SeqCst)
     }
 }

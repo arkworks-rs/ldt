@@ -8,14 +8,17 @@ edition = "2021"
 ark-crypto-primitives = { version = "^0.4.0", default-features = false, features = ["merkle_tree", "sponge"] }
 ark-ff = { version = "0.4", default-features = false }
 ark-poly = { version = "0.4.2", default-features = false }
-ark-std = { version = "^0.4.0", default-features = false, features = ["std"] }
+ark-std = { version = "^0.4.0", default-features = false }
 ark-serialize = { version = "0.4", default-features = false }
 ark-test-curves = { version = "0.4", default-features = false, features = ["bls12_381_curve"] }
 itertools = { version = "0.13.0", default-features = false }
+spin = "0.9.8"
+hashbrown = "0.14.5"
 
 [patch.crates-io]
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra/" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra" }
 ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
+ark-std = { git = "https://github.com/arkworks-rs/std" }
 ark-test-curves = { git = "https://github.com/arkworks-rs/algebra" }

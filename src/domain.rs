@@ -163,7 +163,7 @@ impl<F: FftField> Deref for Domain<F> {
 
 #[cfg(test)]
 mod tests {
-    use ark_std::collections::HashSet;
+    use hashbrown::HashSet;
 
     use super::*;
     use crate::crypto::fields::Field64 as TestField;
