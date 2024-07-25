@@ -7,7 +7,7 @@ use ark_ff::FftField;
 #[cfg(not(feature = "std"))]
 use ark_std::vec::Vec;
 
-use crate::utils::squeeze_integer;
+use crate::utils::{dedup, squeeze_integer};
 
 pub struct DirectProof<F, M, S>
 where
@@ -57,13 +57,13 @@ where
         for _ in 0..num_challenges {
             challenges.push(squeeze_integer(&mut sponge, 32));
         }
-        challenges
+        dedup(challenges)
+    }
+    pub fn num_committed_values(&self) -> usize {
+        self.committed_values.len()
     }
     pub fn verify(&self, commitment_digest: M::InnerDigest, challenges: Vec<usize>) -> bool {
-        if self.challenge_answers.leaf_indexes
-            != challenges.iter().rev().cloned().collect::<Vec<usize>>()
-        {
-            // TODO: IDK why self.challenge_answers.leaf_indexes comes back in reverse
+        if self.challenge_answers.leaf_indexes != challenges {
             return false;
         }
 

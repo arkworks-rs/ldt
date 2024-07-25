@@ -12,7 +12,7 @@ use crate::{
     direct::{config::DirectConfig, proof::DirectProof},
     ldt::Verifier,
     statement::single::SingleStatement,
-    utils::squeeze_integer,
+    utils::{dedup, squeeze_integer},
     witness::Witness,
 };
 
@@ -58,8 +58,9 @@ where
         // squeeze out the challenges as indices
         let mut challenges = Vec::with_capacity(self.config.num_challenges);
         for _ in 0..self.config.num_challenges {
-            challenges.push(squeeze_integer(&mut sponge, 32));
+            challenges.push(squeeze_integer(&mut sponge, proof.num_committed_values()));
         }
+        challenges = dedup(challenges);
         // verifiy the proof against the claim
         proof.verify(claim.commitment_digest(), challenges)
     }
