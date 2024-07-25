@@ -4,11 +4,14 @@ use spin::{Mutex, Once};
 pub mod mock;
 pub mod poseidon;
 
-use ark_std::{borrow::Borrow, marker::PhantomData, vec::Vec};
+use ark_std::{borrow::Borrow, marker::PhantomData};
 
 use ark_crypto_primitives::crh::CRHScheme;
 use ark_serialize::CanonicalSerialize;
 use ark_std::{rand::RngCore, vec};
+
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
 
 #[derive(Debug, Default)]
 pub struct HashCounter {

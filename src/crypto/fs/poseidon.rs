@@ -1,7 +1,9 @@
 use ark_crypto_primitives::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
 use ark_ff::PrimeField;
-use ark_std::vec;
 // use poseidon_paramgen::v1::generate;
+
+#[cfg(not(feature = "std"))]
+use ark_std::vec;
 
 pub type Sponge<F> = PoseidonSponge<F>;
 

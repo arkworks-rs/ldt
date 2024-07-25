@@ -1,4 +1,7 @@
-use ark_std::{collections::BTreeSet, vec, vec::Vec};
+use ark_std::collections::BTreeSet;
+
+#[cfg(not(feature = "std"))]
+use ark_std::{vec, vec::Vec};
 
 use ark_crypto_primitives::sponge::CryptographicSponge;
 

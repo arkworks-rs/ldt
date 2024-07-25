@@ -7,7 +7,10 @@ use ark_poly::{
     univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial,
     Radix2EvaluationDomain,
 };
+
+#[cfg(not(feature = "std"))]
 use ark_std::{vec, vec::Vec};
+
 use itertools::izip;
 
 use crate::{

@@ -4,6 +4,8 @@ use ark_crypto_primitives::{
 };
 use ark_ff::FftField;
 use ark_poly::{univariate::DensePolynomial, Polynomial};
+
+#[cfg(not(feature = "std"))]
 use ark_std::vec::Vec;
 
 use crate::{

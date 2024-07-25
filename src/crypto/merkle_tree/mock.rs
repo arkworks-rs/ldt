@@ -1,8 +1,4 @@
-use ark_std::{
-    borrow::Borrow,
-    marker::PhantomData,
-    {vec, vec::Vec},
-};
+use ark_std::{borrow::Borrow, marker::PhantomData};
 
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
@@ -10,6 +6,9 @@ use ark_crypto_primitives::{
 };
 use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
+
+#[cfg(not(feature = "std"))]
+use ark_std::{vec, vec::Vec};
 
 pub struct Mock;
 

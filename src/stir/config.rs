@@ -2,6 +2,8 @@ use ark_crypto_primitives::{
     merkle_tree::{Config as MerkleConfig, LeafParam, TwoToOneParam},
     sponge::CryptographicSponge,
 };
+
+#[cfg(not(feature = "std"))]
 use ark_std::vec::Vec;
 
 #[derive(Clone)]

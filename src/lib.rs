@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 pub mod crypto;
 pub mod direct;
 pub mod domain;

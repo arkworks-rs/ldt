@@ -12,6 +12,8 @@ mod tests {
     use ark_poly::univariate::DensePolynomial;
     use ark_poly::DenseUVPolynomial;
     use ark_std::test_rng;
+
+    #[cfg(not(feature = "std"))]
     use ark_std::vec;
 
     use crate::{

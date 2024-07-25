@@ -1,5 +1,7 @@
 use ark_ff::{FftField, Field};
 use ark_poly::{univariate::DensePolynomial, Polynomial};
+
+#[cfg(not(feature = "std"))]
 use ark_std::vec::Vec;
 
 use super::interpolation;
