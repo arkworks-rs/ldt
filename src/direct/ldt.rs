@@ -22,7 +22,7 @@ pub struct DirectLDT<F: FftField, M: MerkleConfig, S: CryptographicSponge, W: Wi
 impl<F, M, S, W> LowDegreeTest<F> for DirectLDT<F, M, S, W>
 where
     F: FftField,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,

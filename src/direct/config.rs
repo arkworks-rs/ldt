@@ -3,6 +3,7 @@ use ark_crypto_primitives::{
     sponge::CryptographicSponge,
 };
 
+#[derive(Clone)]
 pub struct DirectConfig<M: MerkleConfig, S: CryptographicSponge> {
     pub degree: usize,
     pub num_challenges: usize,
@@ -25,23 +26,6 @@ impl<M: MerkleConfig, S: CryptographicSponge> DirectConfig<M, S> {
             merkle_leaf_hash_param,
             merkle_two_to_one_param,
             sponge_config,
-        }
-    }
-}
-
-impl<M: MerkleConfig, S: CryptographicSponge> Clone for DirectConfig<M, S>
-where
-    LeafParam<M>: Clone,
-    TwoToOneParam<M>: Clone,
-    S::Config: Clone,
-{
-    fn clone(&self) -> Self {
-        DirectConfig {
-            degree: self.degree,
-            num_challenges: self.num_challenges,
-            merkle_leaf_hash_param: self.merkle_leaf_hash_param.clone(),
-            merkle_two_to_one_param: self.merkle_two_to_one_param.clone(),
-            sponge_config: self.sponge_config.clone(),
         }
     }
 }

@@ -29,7 +29,7 @@ where
 impl<F, M, S> Witness<F, M> for SingleWitness<F, M, S>
 where
     F: FftField,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
@@ -121,7 +121,7 @@ where
 impl<F, M, S> Clone for SingleWitness<F, M, S>
 where
     F: FftField,
-    M: MerkleConfig,
+    M: MerkleConfig + Clone,
     S: CryptographicSponge,
     S::Config: Clone,
 {
@@ -137,6 +137,7 @@ where
 }
 
 // Use SingleWitnessArguement to instantiate a SingleWitness
+#[derive(Clone)]
 pub struct SingleWitnessArgument<F, M, S>
 where
     F: FftField,
@@ -149,23 +150,4 @@ where
     pub merkle_leaf_hash_param: LeafParam<M>,
     pub merkle_two_to_one_param: TwoToOneParam<M>,
     pub sponge_config: S::Config,
-}
-
-impl<F, M, S> Clone for SingleWitnessArgument<F, M, S>
-where
-    F: FftField,
-    M: MerkleConfig,
-    S: CryptographicSponge,
-    S::Config: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            coeff: self.coeff.clone(),
-            domain: self.domain.clone(),
-            folding_factor: self.folding_factor,
-            merkle_leaf_hash_param: self.merkle_leaf_hash_param.clone(),
-            merkle_two_to_one_param: self.merkle_two_to_one_param.clone(),
-            sponge_config: self.sponge_config.clone(),
-        }
-    }
 }

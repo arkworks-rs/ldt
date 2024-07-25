@@ -85,7 +85,7 @@ impl<F: Field, M: MerkleConfig<Leaf = Vec<F>>, S: CryptographicSponge> STIRProof
 impl<F, M, S> Clone for STIRProofRound<F, M, S>
 where
     F: Field,
-    M: MerkleConfig,
+    M: MerkleConfig + Clone,
     S: CryptographicSponge,
     S::Config: Clone,
 {
@@ -112,7 +112,7 @@ pub struct STIRProof<F: Field, M: MerkleConfig, S: CryptographicSponge> {
 impl<F, M, S> Clone for STIRProof<F, M, S>
 where
     F: Field,
-    M: MerkleConfig,
+    M: MerkleConfig + Clone,
     S: CryptographicSponge,
     S::Config: Clone,
 {

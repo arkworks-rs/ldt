@@ -34,7 +34,7 @@ where
 impl<F, M, S, W> Prover<F> for STIRProver<F, M, S, W>
 where
     F: FftField + PrimeField + Absorb,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,

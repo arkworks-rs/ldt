@@ -47,7 +47,7 @@ where
 impl<F, M, S> STIRProverState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
@@ -260,7 +260,7 @@ where
 impl<F, M, S> Iterator for STIRProverState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,
@@ -313,7 +313,7 @@ where
 impl<F, M, S> Clone for STIRProverState<F, M, S>
 where
     F: FftField + PrimeField + Absorb,
-    M: MerkleConfig<Leaf = Vec<F>>,
+    M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     S: CryptographicSponge,
     S::Config: Clone,

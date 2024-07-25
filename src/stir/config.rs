@@ -4,6 +4,7 @@ use ark_crypto_primitives::{
 };
 use ark_std::vec::Vec;
 
+#[derive(Clone)]
 pub struct STIRConfig<M: MerkleConfig, S: CryptographicSponge> {
     pub folding_factor: usize,
     pub num_rounds: usize,
@@ -44,29 +45,6 @@ impl<M: MerkleConfig, S: CryptographicSponge> STIRConfig<M, S> {
             starting_degree,
             starting_rate,
             stopping_degree,
-        }
-    }
-}
-
-impl<M: MerkleConfig, S: CryptographicSponge> Clone for STIRConfig<M, S>
-where
-    LeafParam<M>: Clone,
-    TwoToOneParam<M>: Clone,
-    S::Config: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            folding_factor: self.folding_factor,
-            num_rounds: self.num_rounds,
-            num_out_of_domain_samples: self.num_out_of_domain_samples,
-            merkle_leaf_hash_param: self.merkle_leaf_hash_param.clone(),
-            merkle_two_to_one_param: self.merkle_two_to_one_param.clone(),
-            num_proof_of_work_bits: self.num_proof_of_work_bits.clone(),
-            num_repetitions: self.num_repetitions.clone(),
-            sponge_config: self.sponge_config.clone(),
-            starting_degree: self.starting_degree,
-            starting_rate: self.starting_rate,
-            stopping_degree: self.stopping_degree,
         }
     }
 }
