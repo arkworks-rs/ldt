@@ -1,44 +1,47 @@
+use ark_std::sync::atomic::{AtomicUsize, Ordering};
+use ark_std::sync::{Mutex, Once};
+
 pub mod mock;
 pub mod poseidon;
 
-use ark_std::{
-    borrow::Borrow,
-    marker::PhantomData,
-    sync::atomic::AtomicUsize,
-    {vec, vec::Vec},
-};
+use ark_std::{borrow::Borrow, marker::PhantomData, vec::Vec};
 
 use ark_crypto_primitives::crh::CRHScheme;
 use ark_serialize::CanonicalSerialize;
-use ark_std::rand::RngCore;
-use lazy_static::lazy_static;
+use ark_std::{rand::RngCore, vec};
 
 #[derive(Debug, Default)]
 pub struct HashCounter {
     counter: AtomicUsize,
 }
 
-lazy_static! {
-    static ref HASH_COUNTER: HashCounter = HashCounter::default();
-}
+// Create a `Once` and a `Mutex` to handle the initialization of the `HashCounter`
+static INIT: Once = Once::new();
+static mut HASH_COUNTER: Option<Mutex<HashCounter>> = None;
 
 impl HashCounter {
+    fn get_instance() -> &'static Mutex<HashCounter> {
+        unsafe {
+            INIT.call_once(|| {
+                HASH_COUNTER = Some(Mutex::new(HashCounter::default()));
+            });
+            HASH_COUNTER.as_ref().unwrap()
+        }
+    }
+
     pub(crate) fn add() -> usize {
-        HASH_COUNTER
-            .counter
-            .fetch_add(1, ark_std::sync::atomic::Ordering::SeqCst)
+        let counter = Self::get_instance().lock().unwrap();
+        counter.counter.fetch_add(1, Ordering::SeqCst)
     }
 
     pub fn reset() {
-        HASH_COUNTER
-            .counter
-            .store(0, ark_std::sync::atomic::Ordering::SeqCst)
+        let counter = Self::get_instance().lock().unwrap();
+        counter.counter.store(0, Ordering::SeqCst)
     }
 
     pub fn get() -> usize {
-        HASH_COUNTER
-            .counter
-            .load(ark_std::sync::atomic::Ordering::SeqCst)
+        let counter = Self::get_instance().lock().unwrap();
+        counter.counter.load(Ordering::SeqCst)
     }
 }
 
