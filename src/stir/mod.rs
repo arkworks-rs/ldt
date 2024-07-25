@@ -44,7 +44,7 @@ mod tests {
             num_out_of_domain_samples: 2,
             num_proof_of_work_bits: vec![2, 2, 2, 2, 2],
             num_repetitions: vec![2, 2, 2, 2, 2],
-            sponge_config: fs::poseidon::default_fs_config::<Field256>(),
+            sponge_config: fs::poseidon::poseidon_test_config::<Field256>(),
             starting_degree: 16,
             starting_rate: 8,
             stopping_degree: 8,

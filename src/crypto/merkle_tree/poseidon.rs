@@ -42,7 +42,7 @@ impl<F: PrimeField + Absorb> CRHScheme for PoseidonCRH<F> {
     type Parameters = <poseidon::CRH<F> as CRHScheme>::Parameters;
 
     fn setup<R: RngCore>(_rng: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
-        Ok(fs::poseidon::default_fs_config::<F>())
+        Ok(fs::poseidon::poseidon_test_config::<F>())
     }
 
     fn evaluate<T: Borrow<Self::Input>>(
@@ -67,7 +67,7 @@ impl<F: PrimeField + Absorb> TwoToOneCRHScheme for PoseidonTwoToOneCRH<F> {
     type Parameters = <poseidon::TwoToOneCRH<F> as TwoToOneCRHScheme>::Parameters;
 
     fn setup<R: RngCore>(_rng: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
-        Ok(fs::poseidon::default_fs_config::<F>())
+        Ok(fs::poseidon::poseidon_test_config::<F>())
     }
 
     fn evaluate<T: Borrow<Self::Input>>(

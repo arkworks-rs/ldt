@@ -13,7 +13,6 @@ ark-serialize = { version = "0.4", default-features = false }
 ark-test-curves = { version = "0.4", default-features = false, features = ["bls12_381_curve"] }
 itertools = { version = "0.13.0", default-features = false }
 lazy_static = { version = "1.4", default-features = false }
-poseidon-paramgen = { version = "0.4", default-features = false, features = ["std"]}
 
 [patch.crates-io]
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }

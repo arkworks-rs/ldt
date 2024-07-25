@@ -38,7 +38,7 @@ mod tests {
             num_challenges: 2,
             merkle_leaf_hash_param: merkle_leaf_hash_param.clone(),
             merkle_two_to_one_param: merkle_two_to_one_param.clone(),
-            sponge_config: fs::poseidon::default_fs_config::<Field256>(),
+            sponge_config: fs::poseidon::poseidon_test_config::<Field256>(),
         };
         let (prover, verifier) =
             DirectLDT::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(
