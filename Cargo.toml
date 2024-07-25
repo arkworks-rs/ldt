@@ -12,8 +12,12 @@ ark-std = { version = "^0.4.0", default-features = false }
 ark-serialize = { version = "0.4", default-features = false }
 ark-test-curves = { version = "0.4", default-features = false, features = ["bls12_381_curve"] }
 itertools = { version = "0.13.0", default-features = false }
-spin = "0.9.8"
+spin = { version = "0.9.8", default-features = false, features = ["once", "mutex", "spin_mutex"] }
 hashbrown = "0.14.5"
+
+[features]
+default = ["std"]
+std = [ "ark-crypto-primitives/std", "ark-ff/std", "ark-poly/std", "ark-serialize/std" ]
 
 [patch.crates-io]
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }
