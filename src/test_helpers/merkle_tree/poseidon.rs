@@ -12,7 +12,7 @@ use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 
-use crate::crypto::fs;
+use crate::test_helpers::fs;
 
 use super::HashCounter;
 

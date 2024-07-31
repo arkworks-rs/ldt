@@ -166,7 +166,7 @@ mod tests {
     use hashbrown::HashSet;
 
     use super::*;
-    use crate::crypto::fields::Field64 as TestField;
+    use crate::test_helpers::fields::Field64 as TestField;
 
     #[test]
     fn test_non_overlapping() {

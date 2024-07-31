@@ -89,7 +89,7 @@ where
         // squeeze out the challenges as indices
         let mut challenges: Self::Challenges = Vec::with_capacity(num_challenges);
         for _ in 0..num_challenges {
-            challenges.push(squeeze_integer(&mut sponge, 32)); // TODO (z-tech): this range must be set properly
+            challenges.push(squeeze_integer(&mut sponge, self.committed_values.len()));
         }
         challenges
     }

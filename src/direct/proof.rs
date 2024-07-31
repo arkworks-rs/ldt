@@ -55,7 +55,7 @@ where
         // squeeze out the challenges as indices
         let mut challenges = Vec::with_capacity(num_challenges);
         for _ in 0..num_challenges {
-            challenges.push(squeeze_integer(&mut sponge, 32));
+            challenges.push(squeeze_integer(&mut sponge, self.committed_values.len()));
         }
         dedup(challenges)
     }

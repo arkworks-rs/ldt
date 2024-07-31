@@ -17,10 +17,10 @@ mod tests {
     use ark_std::vec;
 
     use crate::{
-        crypto::{fields::Field256, fs, merkle_tree},
         domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
         stir::{config::STIRConfig, ldt::STIR},
+        test_helpers::{fields::Field256, fs, merkle_tree},
         witness::{
             single::{SingleWitness, SingleWitnessArgument},
             Witness,

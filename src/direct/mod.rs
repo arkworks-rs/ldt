@@ -12,10 +12,10 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::{
-        crypto::{fields::Field256, fs, merkle_tree},
         direct::{config::DirectConfig, ldt::DirectLDT},
         domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
+        test_helpers::{fields::Field256, fs, merkle_tree},
         witness::{
             single::{SingleWitness, SingleWitnessArgument},
             Witness,

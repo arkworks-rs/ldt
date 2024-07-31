@@ -165,7 +165,7 @@ pub fn evaluate_interpolation<'a, F: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{crypto::fields::Field64 as TestField, domain::Domain};
+    use crate::{domain::Domain, test_helpers::fields::Field64 as TestField};
     use ark_ff::AdditiveGroup;
     use ark_poly::domain::EvaluationDomain;
 

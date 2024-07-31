@@ -51,10 +51,10 @@ where
             _witness: PhantomData::<W>,
         }
     }
-    fn verify(&self, claim: &Self::Statement, proof: &Self::Proof) -> bool {
+    fn verify(&self, statement: &Self::Statement, proof: &Self::Proof) -> bool {
         // regenerate the challenges
         let mut sponge = S::new(&self.config.sponge_config);
-        sponge.absorb(&claim.commitment_digest());
+        sponge.absorb(&statement.commitment_digest());
         // squeeze out the challenges as indices
         let mut challenges = Vec::with_capacity(self.config.num_challenges);
         for _ in 0..self.config.num_challenges {
@@ -62,6 +62,6 @@ where
         }
         challenges = dedup(challenges);
         // verifiy the proof against the claim
-        proof.verify(claim.commitment_digest(), challenges)
+        proof.verify(statement.commitment_digest(), challenges)
     }
 }

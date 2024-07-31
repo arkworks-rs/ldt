@@ -77,7 +77,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::fields::Field64 as TestField;
+    use crate::test_helpers::fields::Field64 as TestField;
     use ark_ff::AdditiveGroup;
     use ark_std::rand::Rng;
 
