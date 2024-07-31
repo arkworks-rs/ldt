@@ -15,7 +15,7 @@ This implementation is NOT ready for production use.
 
 ## Overview
 
-A (univariate) low-degree test is an IOP that checks that a given function is close to a (univariate) polynomial of low degree. This library provides two LDTs: the **direct low-degree test** and the **FRI Protocol**. The library also comes with R1CS constraints for the LDT verifiers. Enable `r1cs` feature to use those constraints. 
+A (univariate) low-degree test is an IOP that checks that a given function is close to a (univariate) polynomial of low degree. This library provides three LDTs: **Direct**, **FRI**, and **STIR**.
 
 ## Build Guide
 
@@ -44,8 +44,11 @@ To use this library, you need to add the following to your `Cargo.toml`. Note th
 ark-ldt = {git = "https://github.com/arkworks-rs/ldt", branch="main", default-features = false}
 
 [patch.crates-io]
-ark-sponge = {git = "https://github.com/arkworks-rs/sponge"}
-ark-r1cs-std = {git = "https://github.com/arkworks-rs/r1cs-std", branch = "master"}
+ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra" }
 ```
 
 ## License
@@ -62,10 +65,14 @@ conditions.
 ## Reference papers
 
 [Fractal: Post-Quantum and Transparent Recursive Proofs from Holography][cos20]<br>
-Alessandro Chiesa, Dev Ojha, Nicholas Spooner     
+Alessandro Chiesa, Dev Ojha, Nicholas Spooner
 
-[Fast Reed-Solomon Interactive Oracle Proofs of Proximity][bbhr17]<br>
+[FRI: Fast Reed-Solomon Interactive Oracle Proofs of Proximity][bbhr17]<br>
 Eli Ben-Sasson, Iddo Bentov, Ynon Horesh, Michael Riabzev
+
+[STIR: Reed–Solomon Proximity Testing with Fewer Queries][acfy24]<br>
+Gal Arnon, Alessandro Chiesa, Giacomo Fenzi, Eylon Yogev
 
 [cos20]: https://eprint.iacr.org/2019/1076
 [bbhr17]: https://eccc.weizmann.ac.il/report/2017/134/
+[acfy24]: https://eprint.iacr.org/2024/390

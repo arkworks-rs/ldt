@@ -2,7 +2,9 @@ pub mod config;
 pub mod ldt;
 pub mod proof;
 pub mod prover;
+pub mod prover_state;
 pub mod verifier;
+pub mod verifier_state;
 
 #[cfg(test)]
 mod tests {
@@ -11,10 +13,13 @@ mod tests {
     use ark_poly::DenseUVPolynomial;
     use ark_std::test_rng;
 
+    #[cfg(not(feature = "std"))]
+    use ark_std::vec;
+
     use crate::{
-        direct::{config::DirectConfig, ldt::DirectLDT},
         domain::Domain,
         ldt::{LowDegreeTest, Prover, Verifier},
+        stir::{config::STIRConfig, ldt::STIR},
         test_helpers::{fields::Field256, fs, merkle_tree},
         witness::{
             single::{SingleWitness, SingleWitnessArgument},
@@ -28,38 +33,45 @@ mod tests {
     type TestWitness = SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig>;
 
     #[test]
-    fn test_direct_ldt() {
-        // get ready
+    fn test_stir_ldt() {
+        // config
         let mut rng = test_rng();
         let (merkle_leaf_hash_param, merkle_two_to_one_param) =
             merkle_tree::poseidon::default_config::<Field256>(&mut rng, 2);
-        let config: DirectConfig<TestMerkleConfig, TestSpongeConfig> = DirectConfig {
-            degree: 22,
-            num_challenges: 2,
+        let config: STIRConfig<TestMerkleConfig, TestSpongeConfig> = STIRConfig {
+            folding_factor: 16,
+            num_rounds: 4,
             merkle_leaf_hash_param: merkle_leaf_hash_param.clone(),
             merkle_two_to_one_param: merkle_two_to_one_param.clone(),
+            num_out_of_domain_samples: 2,
+            num_proof_of_work_bits: vec![2, 2, 2, 2, 2],
+            num_repetitions: vec![2, 2, 2, 2, 2],
             sponge_config: fs::poseidon::poseidon_test_config::<Field256>(),
+            starting_degree: 16,
+            starting_rate: 8,
+            stopping_degree: 8,
         };
-        let (prover, verifier) =
-            DirectLDT::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(
-                config.clone(),
-            );
 
-        // generate witness
+        // initialize
+        let (prover, verifier) =
+            STIR::<TestField, TestMerkleConfig, TestSpongeConfig, TestWitness>::new(config.clone());
+
+        // random witness
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
             SingleWitness::new(SingleWitnessArgument {
-                coeff: DensePolynomial::<Field256>::rand(config.degree, &mut rng),
-                domain: Domain::<TestField>::new(config.degree, 0).unwrap(),
-                folding_factor: 1,
+                coeff: DensePolynomial::<Field256>::rand(config.starting_degree - 1, &mut rng),
+                domain: Domain::<TestField>::new(config.starting_degree, config.starting_rate)
+                    .unwrap(),
+                folding_factor: 16,
                 merkle_leaf_hash_param,
                 merkle_two_to_one_param,
                 sponge_config: config.sponge_config,
             });
 
         // prove
-        let direct_proof = prover.prove(&witness);
+        let stir_proof = prover.prove(&witness);
 
         // verify
-        assert_eq!(verifier.verify(&witness.statement(), &direct_proof), true);
+        assert_eq!(verifier.verify(&witness.statement(), &stir_proof), true);
     }
 }

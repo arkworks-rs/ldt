@@ -1,25 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-//! A crate for low-degree tests.
-#![deny(
-    future_incompatible,
-    missing_docs,
-    non_shorthand_field_patterns,
-    renamed_and_removed_lints,
-    rust_2018_idioms,
-    stable_features,
-    trivial_casts,
-    trivial_numeric_casts,
-    unused,
-    variant_size_differences,
-    warnings
-)]
-#![forbid(unsafe_code)]
-
-/// Direct low-degree tests
 pub mod direct;
-
-/// Domain represented as coset.
 pub mod domain;
-/// Implementations for FRI Protocol
-pub mod fri;
+pub mod ldt;
+pub mod poly_utils;
+pub mod statement;
+pub mod stir;
+pub mod test_helpers;
+pub mod utils;
+pub mod witness;
