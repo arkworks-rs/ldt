@@ -29,7 +29,7 @@ where
 
 impl<F, M, S, W> LowDegreeTest<F> for FRI<F, M, S, W>
 where
-    F: FftField + PrimeField,
+    F: Absorb + FftField + PrimeField,
     M: MerkleConfig<Leaf = Vec<F>> + Clone,
     M::InnerDigest: Absorb,
     W: Witness<F, M, Commitment = MerkleTree<M>, MerkleConfig = M, CommittedValues = Vec<Vec<F>>>,

@@ -2,6 +2,7 @@ pub mod config;
 pub mod ldt;
 pub mod proof;
 pub mod prover;
+pub mod prover_state;
 pub mod verifier;
 
 #[cfg(test)]
@@ -51,7 +52,7 @@ mod tests {
         // generate witness
         let witness: SingleWitness<TestField, TestMerkleConfig, TestSpongeConfig> =
             SingleWitness::new(SingleWitnessArgument {
-                coeff: DensePolynomial::<Field256>::rand(config.starting_degree, &mut rng),
+                coeff: DensePolynomial::<Field256>::rand(config.starting_degree - 1, &mut rng),
                 domain: Domain::<TestField>::new(config.starting_degree, config.starting_rate)
                     .unwrap(),
                 folding_factor: config.folding_factor,

@@ -65,36 +65,16 @@ where
         let mut folding_randomnessness: Vec<F> = vec![];
         folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);
         // Absorb the roots
-        for commitment in &proof.commitment_digests {
-            sponge.absorb(&commitment);
-            folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);
-        }
-
-        // We adjoin the initial commitment
-        let commitments: Vec<_> = ark_std::iter::once(proof.initial_commitment_digest.clone())
-            .chain(proof.commitment_digests.iter().cloned())
-            .collect();
-
-        // Verify merkle commitments
-        for num_round in 0..=self.verifier_config.num_rounds {
-            let (answers, proofs) = &proof.round_proofs[num_round].queries_to_prev;
-            for (i, proof) in proofs.iter().enumerate() {
-                let answer = answers[i].clone();
-                if !proof
-                    .verify(
-                        &self.verifier_config.merkle_leaf_hash_param,
-                        &self.verifier_config.merkle_two_to_one_param,
-                        &commitments[num_round],
-                        answer,
-                    )
-                    .unwrap()
-                {
-                    return false;
-                }
+        for (round_num, round_proof) in proof.rounds.iter().enumerate() {
+            if round_num != 0 {
+                sponge.absorb(&round_proof.last_round_commitment_digest);
+                folding_randomnessness.push(sponge.squeeze_field_elements(1)[0]);
             }
         }
+
+        // Verify merkle commitments
         for round_num in 0..self.verifier_config.num_rounds {
-            if !proof.round_proofs[round_num].verify_challenge_answers() {
+            if !proof.rounds[round_num].verify_challenge_answers() {
                 return false;
             }
         }
@@ -161,7 +141,7 @@ where
             let folding_randomness = folding_randomnessness[num_round];
             let answers: Vec<_> = query_indexes
                 .iter()
-                .zip(proof.round_proofs[num_round].queries_to_prev.0.clone())
+                .zip(proof.rounds[num_round].challenge_values.clone())
                 .map(|(index, answer)| (index, answer.clone()))
                 .collect();
 
